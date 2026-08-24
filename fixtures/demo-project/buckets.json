@@ -1,0 +1,26 @@
+[
+  {
+    "name": "customer-data-backup",
+    "location": "US-CENTRAL1",
+    "acl": [
+      {"entity": "allUsers", "role": "READER"}
+    ],
+    "iamConfiguration": {
+      "uniformBucketLevelAccess": {"enabled": false}
+    },
+    "encryption": {"defaultKmsKeyName": null},
+    "logging": {"logBucket": null, "logObjectPrefix": null}
+  },
+  {
+    "name": "internal-archives",
+    "location": "US-CENTRAL1",
+    "acl": [
+      {"entity": "project-owners-123456789", "role": "OWNER"}
+    ],
+    "iamConfiguration": {
+      "uniformBucketLevelAccess": {"enabled": true}
+    },
+    "encryption": {"defaultKmsKeyName": "projects/demo/locations/us-central1/keyRings/infra/cryptoKeys/archive-cmek"},
+    "logging": {"logBucket": "internal-archives-logs", "logObjectPrefix": "audit"}
+  }
+]

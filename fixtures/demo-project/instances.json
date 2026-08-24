@@ -1,0 +1,20 @@
+[
+  {
+    "name": "public-web-server",
+    "zone": "us-central1-a",
+    "networkInterfaces": [
+      {
+        "network": "projects/demo-project/global/networks/default",
+        "accessConfigs": [
+          {"name": "External NAT", "natIP": "34.120.14.88", "type": "ONE_TO_ONE_NAT"}
+        ]
+      }
+    ],
+    "serviceAccounts": [
+      {"email": "demo-project@appspot.gserviceaccount.com"}
+    ],
+    "disks": [
+      {"boot": true, "diskEncryptionKey": null}
+    ]
+  }
+]

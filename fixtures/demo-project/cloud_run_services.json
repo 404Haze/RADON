@@ -1,0 +1,11 @@
+[
+  {
+    "name": "legacy-api",
+    "ingress": "INGRESS_TRAFFIC_ALL",
+    "allowUnauthenticated": true,
+    "env": [
+      {"name": "DB_PASSWORD", "value": "hunter2-super-secret"},
+      {"name": "API_KEY", "value": "sk-live-1234567890"}
+    ]
+  }
+]

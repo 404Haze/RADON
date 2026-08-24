@@ -1,0 +1,17 @@
+{
+  "version": 3,
+  "bindings": [
+    {
+      "role": "roles/storage.objectViewer",
+      "members": ["allUsers"]
+    },
+    {
+      "role": "roles/editor",
+      "members": ["serviceAccount:legacy-deploy@demo-project.iam.gserviceaccount.com"]
+    },
+    {
+      "role": "roles/owner",
+      "members": ["user:founder@metalorigami.dev"]
+    }
+  ]
+}

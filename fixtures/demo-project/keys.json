@@ -1,0 +1,9 @@
+[
+  {
+    "name": "projects/demo-project/serviceAccounts/legacy-deploy@demo-project.iam.gserviceaccount.com/keys/abc123",
+    "keyType": "USER_MANAGED",
+    "validAfterTime": "2022-01-15T00:00:00Z",
+    "validBeforeTime": null,
+    "disabled": false
+  }
+]

@@ -1,0 +1,21 @@
+[
+  {
+    "name": "allow-all-ingress",
+    "direction": "INGRESS",
+    "sourceRanges": ["0.0.0.0/0"],
+    "allowed": [
+      {"IPProtocol": "tcp", "ports": ["22"]},
+      {"IPProtocol": "tcp", "ports": ["3389"]}
+    ],
+    "disabled": false,
+    "network": "projects/demo-project/global/networks/default"
+  },
+  {
+    "name": "allow-internal",
+    "direction": "INGRESS",
+    "sourceRanges": ["10.0.0.0/8"],
+    "allowed": [{"IPProtocol": "tcp", "ports": ["443"]}],
+    "disabled": false,
+    "network": "projects/demo-project/global/networks/default"
+  }
+]
