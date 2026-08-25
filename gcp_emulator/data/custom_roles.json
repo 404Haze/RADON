@@ -1,0 +1,20 @@
+[
+  {
+    "name": "projects/demo-project/roles/DevOpsAdmin",
+    "title": "DevOps Admin",
+    "includedPermissions": [
+      "iam.serviceAccounts.setIamPolicy",
+      "iam.serviceAccounts.actAs",
+      "compute.instances.create",
+      "storage.objects.list"
+    ]
+  },
+  {
+    "name": "projects/demo-project/roles/ReadOnlyAuditor",
+    "title": "Read Only Auditor",
+    "includedPermissions": [
+      "storage.objects.get",
+      "compute.instances.get"
+    ]
+  }
+]

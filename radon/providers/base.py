@@ -1,4 +1,4 @@
-"""Abstract provider: the contract both live and fixture sources implement."""
+"""Abstract provider: the contract the HTTP client (and any live backend) implements."""
 
 from __future__ import annotations
 
@@ -11,8 +11,10 @@ class GcpProvider(ABC):
 
     Every method returns plain dicts (or lists of dicts) shaped like the
     resources the real GCP API returns. Checks consume these dicts and do
-    not know whether the data came from the live API or from fixtures.
+    not know whether the data came from the live API or the emulator.
     """
+
+    project_id: str
 
     @abstractmethod
     def get_iam_policy(self) -> dict[str, Any]:
@@ -25,6 +27,10 @@ class GcpProvider(ABC):
     @abstractmethod
     def list_service_account_keys(self) -> list[dict[str, Any]]:
         """User-managed keys for the project's service accounts."""
+
+    @abstractmethod
+    def list_project_roles(self) -> list[dict[str, Any]]:
+        """Custom IAM roles defined in the project."""
 
     @abstractmethod
     def list_buckets(self) -> list[dict[str, Any]]:

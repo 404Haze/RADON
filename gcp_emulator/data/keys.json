@@ -5,5 +5,26 @@
     "validAfterTime": "2022-01-15T00:00:00Z",
     "validBeforeTime": null,
     "disabled": false
+  },
+  {
+    "name": "projects/demo-project/serviceAccounts/legacy-deploy@demo-project.iam.gserviceaccount.com/keys/def456",
+    "keyType": "USER_MANAGED",
+    "validAfterTime": "2026-07-01T00:00:00Z",
+    "validBeforeTime": "2027-07-01T00:00:00Z",
+    "disabled": false
+  },
+  {
+    "name": "projects/demo-project/serviceAccounts/legacy-deploy@demo-project.iam.gserviceaccount.com/keys/ghi789",
+    "keyType": "USER_MANAGED",
+    "validAfterTime": "2026-08-01T00:00:00Z",
+    "validBeforeTime": null,
+    "disabled": false
+  },
+  {
+    "name": "projects/demo-project/serviceAccounts/retired-bot@demo-project.iam.gserviceaccount.com/keys/ret1",
+    "keyType": "USER_MANAGED",
+    "validAfterTime": "2026-06-15T00:00:00Z",
+    "validBeforeTime": "2027-06-15T00:00:00Z",
+    "disabled": false
   }
 ]

@@ -40,6 +40,9 @@ class HttpGcpProvider(GcpProvider):
                 keys += self._get(f"/iam/v1/projects/{self.project_id}/serviceAccounts/{email}/keys")
         return keys
 
+    def list_project_roles(self) -> list[dict[str, Any]]:
+        return self._get(f"/iam/v1/projects/{self.project_id}/roles")
+
     def list_buckets(self) -> list[dict[str, Any]]:
         return self._get("/storage/v1/b")
 

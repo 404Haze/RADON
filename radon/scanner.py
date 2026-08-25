@@ -22,8 +22,18 @@ from radon.checks.gcs import (
     check_uniform_bucket_level_access,
 )
 from radon.checks.iam import (
+    check_cross_project_service_accounts,
+    check_custom_role_broad_permissions,
+    check_disabled_service_accounts_with_roles,
+    check_dormant_service_accounts,
+    check_excessive_keys,
+    check_external_members,
+    check_keys_without_expiry,
+    check_orphaned_keys,
     check_overprivileged_service_accounts,
+    check_primitive_roles_on_users,
     check_public_bindings,
+    check_service_account_admin_role,
     check_unrotated_keys,
     check_user_managed_keys,
 )
@@ -36,10 +46,23 @@ def scan(provider: GcpProvider) -> list[Finding]:
     findings: list[Finding] = []
 
     policy = provider.get_iam_policy()
-    findings += check_public_bindings(policy)
-    findings += check_overprivileged_service_accounts(policy)
+    service_accounts = provider.list_service_accounts()
     keys = provider.list_service_account_keys()
+    roles = provider.list_project_roles()
+
+    findings += check_public_bindings(policy)
+    findings += check_primitive_roles_on_users(policy)
+    findings += check_overprivileged_service_accounts(policy)
+    findings += check_service_account_admin_role(policy)
+    findings += check_custom_role_broad_permissions(roles)
+    findings += check_external_members(policy)
+    findings += check_cross_project_service_accounts(policy, provider.project_id)
+    findings += check_dormant_service_accounts(service_accounts)
+    findings += check_disabled_service_accounts_with_roles(service_accounts, policy)
+    findings += check_orphaned_keys(service_accounts, keys)
     findings += check_unrotated_keys(keys)
+    findings += check_keys_without_expiry(keys)
+    findings += check_excessive_keys(keys)
     findings += check_user_managed_keys(keys)
 
     for bucket in provider.list_buckets():

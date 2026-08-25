@@ -3,7 +3,7 @@
   "bindings": [
     {
       "role": "roles/storage.objectViewer",
-      "members": ["allUsers"]
+      "members": ["allUsers", "serviceAccount:retired-bot@demo-project.iam.gserviceaccount.com"]
     },
     {
       "role": "roles/editor",
@@ -12,6 +12,18 @@
     {
       "role": "roles/owner",
       "members": ["user:founder@metalorigami.dev"]
+    },
+    {
+      "role": "roles/iam.serviceAccountAdmin",
+      "members": ["user:dev@metalorigami.dev"]
+    },
+    {
+      "role": "roles/viewer",
+      "members": ["user:contractor@vendor.example.com"]
+    },
+    {
+      "role": "roles/storage.admin",
+      "members": ["serviceAccount:audit-bot@other-project.iam.gserviceaccount.com"]
     }
   ]
 }

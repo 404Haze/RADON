@@ -55,6 +55,11 @@ def list_service_account_keys(project: str, sa: str) -> list[dict[str, Any]]:
     return [k for k in keys if sa in k.get("name", "")]
 
 
+@app.get("/iam/v1/projects/{project}/roles")
+def list_roles(project: str) -> list[dict[str, Any]]:
+    return _load("custom_roles.json")
+
+
 @app.get("/compute/v1/projects/{project}/global/firewalls")
 def list_firewalls(project: str) -> list[dict[str, Any]]:
     return _load("firewall_rules.json")
