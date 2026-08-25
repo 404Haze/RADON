@@ -37,6 +37,10 @@ class GcpProvider(ABC):
         """Cloud Storage buckets."""
 
     @abstractmethod
+    def list_objects(self) -> list[dict[str, Any]]:
+        """Cloud Storage objects, each with its ACL."""
+
+    @abstractmethod
     def list_instances(self) -> list[dict[str, Any]]:
         """Compute Engine instances."""
 

@@ -17,9 +17,16 @@ from radon.checks.compute import (
 )
 from radon.checks.gcs import (
     check_cmek,
+    check_external_project_access,
+    check_lifecycle,
     check_logging,
     check_public_bucket,
+    check_public_bucket_iam,
+    check_public_object,
+    check_retention_policy,
+    check_single_region,
     check_uniform_bucket_level_access,
+    check_versioning,
 )
 from radon.checks.iam import (
     check_cross_project_service_accounts,
@@ -67,9 +74,18 @@ def scan(provider: GcpProvider) -> list[Finding]:
 
     for bucket in provider.list_buckets():
         findings += check_public_bucket(bucket)
+        findings += check_public_bucket_iam(bucket)
         findings += check_uniform_bucket_level_access(bucket)
+        findings += check_versioning(bucket)
+        findings += check_external_project_access(bucket, provider.project_id)
         findings += check_cmek(bucket)
         findings += check_logging(bucket)
+        findings += check_retention_policy(bucket)
+        findings += check_lifecycle(bucket)
+        findings += check_single_region(bucket)
+
+    for obj in provider.list_objects():
+        findings += check_public_object(obj)
 
     for instance in provider.list_instances():
         findings += check_public_ip(instance)

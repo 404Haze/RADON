@@ -39,6 +39,11 @@ def list_buckets() -> list[dict[str, Any]]:
     return _load("buckets.json")
 
 
+@app.get("/storage/v1/objects")
+def list_objects() -> list[dict[str, Any]]:
+    return _load("objects.json")
+
+
 @app.get("/iam/v1/projects/{project}/policy")
 def get_iam_policy(project: str) -> dict[str, Any]:
     return _load("iam_policy.json")

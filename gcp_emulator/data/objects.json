@@ -1,0 +1,12 @@
+[
+  {
+    "bucket": "customer-data-backup",
+    "name": "customer-export-2025.csv",
+    "acl": [{"entity": "allUsers", "role": "READER"}]
+  },
+  {
+    "bucket": "internal-archives",
+    "name": "audit-log-2025.jsonl",
+    "acl": [{"entity": "project-owners-123456789", "role": "OWNER"}]
+  }
+]

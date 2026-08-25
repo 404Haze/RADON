@@ -46,6 +46,9 @@ class HttpGcpProvider(GcpProvider):
     def list_buckets(self) -> list[dict[str, Any]]:
         return self._get("/storage/v1/b")
 
+    def list_objects(self) -> list[dict[str, Any]]:
+        return self._get("/storage/v1/objects")
+
     def list_instances(self) -> list[dict[str, Any]]:
         return self._get(f"/compute/v1/projects/{self.project_id}/zones/us-central1-a/instances")
 
