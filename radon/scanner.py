@@ -3,10 +3,17 @@
 from __future__ import annotations
 
 from radon.checks.cloud_run import (
+    check_binary_authorization,
+    check_concurrency_limit,
+    check_execution_environment,
     check_ingress,
+    check_latest_image_tag,
+    check_min_instances,
     check_resource_limits,
     check_secrets_in_env,
+    check_timeout,
     check_unauthenticated,
+    check_vpc_connector,
 )
 from radon.checks.compute import (
     check_default_network,
@@ -121,6 +128,13 @@ def scan(provider: GcpProvider) -> list[Finding]:
         findings += check_ingress(service)
         findings += check_secrets_in_env(service)
         findings += check_resource_limits(service)
+        findings += check_vpc_connector(service)
+        findings += check_latest_image_tag(service)
+        findings += check_timeout(service)
+        findings += check_concurrency_limit(service)
+        findings += check_execution_environment(service)
+        findings += check_min_instances(service)
+        findings += check_binary_authorization(service)
 
     return _dedupe(findings)
 

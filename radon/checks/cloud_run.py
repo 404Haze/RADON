@@ -80,3 +80,122 @@ def check_resource_limits(service: dict[str, Any]) -> list[Finding]:
             detail=f"service {name} has no explicit resource limits",
         )
     ]
+
+
+def check_vpc_connector(service: dict[str, Any]) -> list[Finding]:
+    """Flag services not attached to a VPC connector."""
+    name = service.get("name", "unknown")
+    if service.get("vpcConnector"):
+        return []
+    return [
+        Finding(
+            id=f"cloudrun:no_vpc_connector:{name}",
+            rule="no_vpc_connector",
+            severity=Severity.MEDIUM,
+            service="cloud_run",
+            resource=name,
+            detail=f"service {name} is not attached to a VPC connector",
+        )
+    ]
+
+
+def check_latest_image_tag(service: dict[str, Any]) -> list[Finding]:
+    """Flag services deploying the :latest image tag."""
+    name = service.get("name", "unknown")
+    if not service.get("image", "").endswith(":latest"):
+        return []
+    return [
+        Finding(
+            id=f"cloudrun:latest_image:{name}",
+            rule="latest_image_tag",
+            severity=Severity.MEDIUM,
+            service="cloud_run",
+            resource=name,
+            detail=f"service {name} deploys the :latest image tag",
+        )
+    ]
+
+
+def check_timeout(service: dict[str, Any]) -> list[Finding]:
+    """Flag services with no request timeout set."""
+    name = service.get("name", "unknown")
+    if service.get("timeout"):
+        return []
+    return [
+        Finding(
+            id=f"cloudrun:no_timeout:{name}",
+            rule="no_timeout",
+            severity=Severity.LOW,
+            service="cloud_run",
+            resource=name,
+            detail=f"service {name} has no request timeout set",
+        )
+    ]
+
+
+def check_concurrency_limit(service: dict[str, Any]) -> list[Finding]:
+    """Flag services with no concurrency cap."""
+    name = service.get("name", "unknown")
+    if service.get("concurrency"):
+        return []
+    return [
+        Finding(
+            id=f"cloudrun:no_concurrency:{name}",
+            rule="no_concurrency_limit",
+            severity=Severity.LOW,
+            service="cloud_run",
+            resource=name,
+            detail=f"service {name} has no concurrency cap",
+        )
+    ]
+
+
+def check_execution_environment(service: dict[str, Any]) -> list[Finding]:
+    """Flag services on the deprecated first-generation runtime."""
+    name = service.get("name", "unknown")
+    if service.get("executionEnvironment", "GEN2") != "GEN1":
+        return []
+    return [
+        Finding(
+            id=f"cloudrun:gen1:{name}",
+            rule="execution_environment_gen1",
+            severity=Severity.LOW,
+            service="cloud_run",
+            resource=name,
+            detail=f"service {name} runs on the deprecated first-generation runtime",
+        )
+    ]
+
+
+def check_min_instances(service: dict[str, Any]) -> list[Finding]:
+    """Flag services with no minimum instances."""
+    name = service.get("name", "unknown")
+    if service.get("minInstances"):
+        return []
+    return [
+        Finding(
+            id=f"cloudrun:no_min_instances:{name}",
+            rule="no_min_instances",
+            severity=Severity.LOW,
+            service="cloud_run",
+            resource=name,
+            detail=f"service {name} has no minimum instances",
+        )
+    ]
+
+
+def check_binary_authorization(service: dict[str, Any]) -> list[Finding]:
+    """Flag services that do not enforce binary authorization."""
+    name = service.get("name", "unknown")
+    if service.get("binaryAuthorization") == "ENABLED":
+        return []
+    return [
+        Finding(
+            id=f"cloudrun:no_binary_authz:{name}",
+            rule="binary_authorization_disabled",
+            severity=Severity.MEDIUM,
+            service="cloud_run",
+            resource=name,
+            detail=f"service {name} does not enforce binary authorization",
+        )
+    ]
