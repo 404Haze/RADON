@@ -4,8 +4,8 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 MODEL_REPO="unsloth/LFM2.5-1.2B-Instruct-GGUF"
-MODEL_FILE="LFM2.5-1.2B-Instruct-UD-Q6_K_XL.gguf"
-SHA256="a1ede0b031a20596cdaa6d2a7f15a855d3514253d125ed1d476ea3e0a84018ae"
+MODEL_FILE="LFM2.5-1.2B-Instruct-UD-Q5_K_XL.gguf"
+SHA256="7ad5eef540097e1afc0118799e5d22005c0c1721cba0a2b01bed287e4888baaf"
 URL="https://huggingface.co/${MODEL_REPO}/resolve/main/${MODEL_FILE}"
 OUT="models/${MODEL_FILE}"
 

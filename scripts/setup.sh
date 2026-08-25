@@ -14,11 +14,11 @@ cat <<'EOF'
 Setup complete.
 
   llama.cpp server:  vendor/llama.cpp/build/bin/llama-server
-  model weights:     models/LFM2.5-1.2B-Instruct-UD-Q6_K_XL.gguf
+  model weights:     models/LFM2.5-1.2B-Instruct-UD-Q5_K_XL.gguf
 
 Start the triage server later with:
 
   vendor/llama.cpp/build/bin/llama-server \
-      -m models/LFM2.5-1.2B-Instruct-UD-Q6_K_XL.gguf \
+      -m models/LFM2.5-1.2B-Instruct-UD-Q5_K_XL.gguf \
       --port 8080
 EOF
