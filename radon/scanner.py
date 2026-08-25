@@ -9,11 +9,20 @@ from radon.checks.cloud_run import (
     check_unauthenticated,
 )
 from radon.checks.compute import (
+    check_default_network,
     check_default_service_account,
     check_disk_encryption,
+    check_firewall_all_ports,
+    check_ip_forwarding,
+    check_legacy_network,
+    check_metadata_secrets,
     check_open_firewall,
+    check_open_ssh_rdp,
+    check_os_login,
+    check_project_wide_ssh_keys,
     check_public_ip,
     check_serial_port,
+    check_shielded_vm,
 )
 from radon.checks.gcs import (
     check_cmek,
@@ -87,14 +96,25 @@ def scan(provider: GcpProvider) -> list[Finding]:
     for obj in provider.list_objects():
         findings += check_public_object(obj)
 
+    networks = {n["name"]: n.get("subnetMode", "") for n in provider.list_networks()}
+
     for instance in provider.list_instances():
         findings += check_public_ip(instance)
         findings += check_default_service_account(instance)
         findings += check_disk_encryption(instance)
         findings += check_serial_port(instance)
+        findings += check_project_wide_ssh_keys(instance)
+        findings += check_os_login(instance)
+        findings += check_shielded_vm(instance)
+        findings += check_ip_forwarding(instance)
+        findings += check_metadata_secrets(instance)
+        findings += check_default_network(instance)
+        findings += check_legacy_network(instance, networks)
 
     for rule in provider.list_firewall_rules():
         findings += check_open_firewall(rule)
+        findings += check_open_ssh_rdp(rule)
+        findings += check_firewall_all_ports(rule)
 
     for service in provider.list_cloud_run_services():
         findings += check_unauthenticated(service)

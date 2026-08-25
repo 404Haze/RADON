@@ -17,5 +17,13 @@
     "allowed": [{"IPProtocol": "tcp", "ports": ["443"]}],
     "disabled": false,
     "network": "projects/demo-project/global/networks/default"
+  },
+  {
+    "name": "allow-all-tcp",
+    "direction": "INGRESS",
+    "sourceRanges": ["0.0.0.0/0"],
+    "allowed": [{"IPProtocol": "tcp"}],
+    "disabled": false,
+    "network": "projects/demo-project/global/networks/default"
   }
 ]

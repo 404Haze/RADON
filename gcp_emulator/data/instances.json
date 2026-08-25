@@ -15,6 +15,31 @@
     ],
     "disks": [
       {"boot": true, "diskEncryptionKey": null}
-    ]
+    ],
+    "canIpForward": true,
+    "metadata": {
+      "items": [
+        {"key": "serial-port-enable", "value": "true"},
+        {"key": "enable-oslogin", "value": "false"},
+        {"key": "block-project-ssh-keys", "value": "false"},
+        {"key": "DB_PASSWORD", "value": "«redacted:postgres-secret»"}
+      ]
+    }
+  },
+  {
+    "name": "legacy-worker",
+    "zone": "us-central1-a",
+    "networkInterfaces": [
+      {"network": "projects/demo-project/global/networks/legacy-vpc"}
+    ],
+    "serviceAccounts": [
+      {"email": "demo-project@appspot.gserviceaccount.com"}
+    ],
+    "disks": [
+      {"boot": true, "diskEncryptionKey": null}
+    ],
+    "canIpForward": false,
+    "metadata": {"items": []},
+    "shieldedInstanceConfig": {"enableSecureBoot": false, "enableVtpm": false}
   }
 ]

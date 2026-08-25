@@ -55,5 +55,8 @@ class HttpGcpProvider(GcpProvider):
     def list_firewall_rules(self) -> list[dict[str, Any]]:
         return self._get(f"/compute/v1/projects/{self.project_id}/global/firewalls")
 
+    def list_networks(self) -> list[dict[str, Any]]:
+        return self._get(f"/compute/v1/projects/{self.project_id}/global/networks")
+
     def list_cloud_run_services(self) -> list[dict[str, Any]]:
         return self._get(f"/run/v1/projects/{self.project_id}/services")

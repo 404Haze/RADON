@@ -70,6 +70,11 @@ def list_firewalls(project: str) -> list[dict[str, Any]]:
     return _load("firewall_rules.json")
 
 
+@app.get("/compute/v1/projects/{project}/global/networks")
+def list_networks(project: str) -> list[dict[str, Any]]:
+    return _load("networks.json")
+
+
 @app.get("/compute/v1/projects/{project}/zones/{zone}/instances")
 def list_instances(project: str, zone: str) -> list[dict[str, Any]]:
     return _load("instances.json")

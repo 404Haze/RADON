@@ -1,0 +1,4 @@
+[
+  {"name": "default", "subnetMode": "AUTO"},
+  {"name": "legacy-vpc", "subnetMode": "LEGACY"}
+]

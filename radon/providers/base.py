@@ -49,5 +49,9 @@ class GcpProvider(ABC):
         """VPC firewall rules."""
 
     @abstractmethod
+    def list_networks(self) -> list[dict[str, Any]]:
+        """VPC networks, each with its subnet mode."""
+
+    @abstractmethod
     def list_cloud_run_services(self) -> list[dict[str, Any]]:
         """Cloud Run services."""
