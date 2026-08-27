@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -19,8 +18,8 @@ class Severity(str, Enum):
 class Finding(BaseModel):
     """A single misconfiguration discovered by the audit engine.
 
-    ``remediation`` is populated later by the LLM triage layer; the audit
-    engine leaves it empty.
+    Raw scan output. The triage layer pairs it with an
+    ``Assessment`` (severity, explanation, remediation).
     """
 
     id: str = Field(description="Stable identifier, e.g. gcs:public_bucket:name")
@@ -29,4 +28,3 @@ class Finding(BaseModel):
     service: str = Field(description="GCP service: iam, gcs, compute, cloud_run")
     resource: str = Field(description="Human-readable resource name")
     detail: str = Field(description="What the check observed")
-    remediation: Optional[str] = Field(default=None, description="Suggested fix, filled by triage")
