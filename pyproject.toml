@@ -2,7 +2,6 @@
 name = "radon"
 version = "0.1.0"
 description = "Risk Analysis & Detection Orchestration Node - a self-hosted GCP cloud security posture scanner with local-LLM triage"
-readme = "README.md"
 requires-python = ">=3.11"
 license = "Apache-2.0"
 dependencies = [
@@ -10,11 +9,13 @@ dependencies = [
     "httpx>=0.27",
     "fastapi>=0.110",
     "uvicorn>=0.29",
+    "pymongo>=4.0",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0",
+    "mongomock>=4.1",
 ]
 
 [build-system]
