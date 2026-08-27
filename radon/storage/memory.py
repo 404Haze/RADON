@@ -23,3 +23,9 @@ class MemoryStorage(Storage):
 
     def score_history(self) -> list[ScorePoint]:
         return list(self._history)
+
+    def set_status(self, finding_id: str, status: str) -> None:
+        for report in self._reports:
+            if report.finding.id == finding_id:
+                report.status = status
+                return

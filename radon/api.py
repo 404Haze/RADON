@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException
+from fastapi.staticfiles import StaticFiles
 
 from radon.config import Config
 from radon.models.finding import Finding
@@ -15,6 +17,8 @@ from radon.score import ScorePoint, build_score
 from radon.storage import Storage, get_storage
 from radon.triage import get_triage
 from radon.triage.base import Triage
+
+_DASHBOARD = Path(__file__).parent / "dashboard"
 
 
 def create_app(
@@ -45,6 +49,11 @@ def create_app(
     def list_reports() -> list[Report]:
         return store.latest_reports()
 
+    @app.post("/reports/status")
+    def update_status(finding_id: str, status: str = "remediated") -> dict:
+        store.set_status(finding_id, status)
+        return {"finding_id": finding_id, "status": status}
+
     @app.get("/score", response_model=ScorePoint)
     def latest_score() -> ScorePoint:
         history = store.score_history()
@@ -56,6 +65,7 @@ def create_app(
     def score_history() -> list[ScorePoint]:
         return store.score_history()
 
+    app.mount("/", StaticFiles(directory=_DASHBOARD, html=True), name="dashboard")
     return app
 
 

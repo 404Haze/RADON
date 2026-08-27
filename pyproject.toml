@@ -25,6 +25,9 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 include = ["radon*", "gcp_emulator*"]
 
+[tool.setuptools.package-data]
+radon = ["dashboard/*.html", "dashboard/*.css", "dashboard/*.js"]
+
 [tool.pytest.ini_options]
 testpaths = ["test-suite"]
 addopts = "-q"

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>R.A.D.O.N. — Cloud Security Posture</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header>
+    <span class="brand">R.A.D.O.N.</span>
+    <span class="subtitle">Risk Analysis &amp; Detection Orchestration Node</span>
+    <span class="actions"><button id="scan-btn">Run scan</button></span>
+  </header>
+  <main>
+    <section class="score-panel">
+      <div class="score-card">
+        <div class="score-value" id="score-value">—</div>
+        <div class="score-label">Posture score</div>
+      </div>
+      <div class="trend-card">
+        <svg id="trend-chart" role="img" aria-label="score history"></svg>
+        <div class="trend-label">Score history</div>
+      </div>
+      <div class="counts" id="counts"></div>
+    </section>
+    <section class="filters" id="filters"></section>
+    <section class="findings" id="findings"></section>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>

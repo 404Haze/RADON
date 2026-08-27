@@ -22,3 +22,7 @@ class Storage(ABC):
     @abstractmethod
     def score_history(self) -> list[ScorePoint]:
         """Return the score trend, oldest first."""
+
+    @abstractmethod
+    def set_status(self, finding_id: str, status: str) -> None:
+        """Update a finding's remediation status."""

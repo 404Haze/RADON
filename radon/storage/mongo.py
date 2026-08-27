@@ -33,3 +33,6 @@ class MongoStorage(Storage):
 
     def score_history(self) -> list[ScorePoint]:
         return [ScorePoint.model_validate(d) for d in self._history.find().sort("timestamp", 1)]
+
+    def set_status(self, finding_id: str, status: str) -> None:
+        self._reports.update_one({"finding.id": finding_id}, {"$set": {"status": status}})

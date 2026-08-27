@@ -49,3 +49,18 @@ def test_score_history_accumulates(provider):
 def test_score_404_before_first_scan(provider):
     client = _client(provider)
     assert client.get("/score").status_code == 404
+
+
+def test_remediate_marks_report_fixed(provider):
+    client = _client(provider)
+    client.post("/scan")
+    fid = client.get("/reports").json()[0]["finding"]["id"]
+    resp = client.post("/reports/status", params={"finding_id": fid, "status": "remediated"})
+    assert resp.status_code == 200
+    updated = client.get("/reports").json()
+    assert next(r for r in updated if r["finding"]["id"] == fid)["status"] == "remediated"
+
+
+def test_dashboard_serves(provider):
+    client = _client(provider)
+    assert client.get("/").status_code == 200

@@ -11,10 +11,11 @@ from radon.triage.base import Assessment, Triage
 
 
 class Report(BaseModel):
-    """One finding plus the triage's plain-English assessment of it."""
+    """One finding, its plain-English assessment, and its remediation status."""
 
     finding: Finding
     assessment: Assessment
+    status: str = "open"
 
 
 def scan_and_triage(provider: GcpProvider, triage: Triage) -> list[Report]:
