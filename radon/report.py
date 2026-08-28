@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from pydantic import BaseModel
 
 from radon.models.finding import Finding
@@ -15,9 +17,19 @@ class Report(BaseModel):
 
     finding: Finding
     assessment: Assessment
-    status: str = "open"
+    status: str = "unresolved"  # "unresolved" | "resolved" | "ignored"
 
 
-def scan_and_triage(provider: GcpProvider, triage: Triage) -> list[Report]:
+def scan_and_triage(
+    provider: GcpProvider,
+    triage: Triage,
+    progress: Callable[[str], None] | None = None,
+) -> list[Report]:
     """Scan a provider and pair every finding with its assessment."""
-    return [Report(finding=f, assessment=triage.assess(f)) for f in scan(provider)]
+    findings = scan(provider, progress=progress)
+    if progress:
+        progress(f"Triaging {len(findings)} findings with the local model...")
+    reports = [Report(finding=f, assessment=triage.assess(f)) for f in findings]
+    if progress:
+        progress("Scan complete.")
+    return reports

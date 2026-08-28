@@ -8,13 +8,15 @@ from radon.storage.base import Storage
 
 
 class MemoryStorage(Storage):
-    """Keeps the latest reports and the full score history in memory."""
-
-    def __init__(self) -> None:
+    def __init__(self):
         self._reports: list[Report] = []
         self._history: list[ScorePoint] = []
+        self._ignored: set[str] = set()
 
     def save_scan(self, reports: list[Report], score: ScorePoint) -> None:
+        for report in reports:
+            if report.finding.id in self._ignored:
+                report.status = "ignored"
         self._reports = list(reports)
         self._history.append(score)
 
@@ -25,6 +27,10 @@ class MemoryStorage(Storage):
         return list(self._history)
 
     def set_status(self, finding_id: str, status: str) -> None:
+        if status == "ignored":
+            self._ignored.add(finding_id)
+        else:
+            self._ignored.discard(finding_id)
         for report in self._reports:
             if report.finding.id == finding_id:
                 report.status = status

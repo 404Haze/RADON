@@ -60,14 +60,22 @@ from radon.checks.iam import (
     check_unrotated_keys,
     check_user_managed_keys,
 )
+from collections.abc import Callable
+
 from radon.models.finding import Finding
 from radon.providers.base import GcpProvider
 
 
-def scan(provider: GcpProvider) -> list[Finding]:
+def scan(provider: GcpProvider, progress: Callable[[str], None] | None = None) -> list[Finding]:
     """Run every check against the provider and return deduplicated findings."""
+
+    def emit(msg: str) -> None:
+        if progress:
+            progress(msg)
+
     findings: list[Finding] = []
 
+    emit("Enumerating IAM resources...")
     policy = provider.get_iam_policy()
     service_accounts = provider.list_service_accounts()
     keys = provider.list_service_account_keys()
@@ -88,6 +96,7 @@ def scan(provider: GcpProvider) -> list[Finding]:
     findings += check_excessive_keys(keys)
     findings += check_user_managed_keys(keys)
 
+    emit("Auditing GCS buckets and objects...")
     for bucket in provider.list_buckets():
         findings += check_public_bucket(bucket)
         findings += check_public_bucket_iam(bucket)
@@ -103,6 +112,7 @@ def scan(provider: GcpProvider) -> list[Finding]:
     for obj in provider.list_objects():
         findings += check_public_object(obj)
 
+    emit("Auditing Compute instances and firewalls...")
     networks = {n["name"]: n.get("subnetMode", "") for n in provider.list_networks()}
 
     for instance in provider.list_instances():
@@ -123,6 +133,7 @@ def scan(provider: GcpProvider) -> list[Finding]:
         findings += check_open_ssh_rdp(rule)
         findings += check_firewall_all_ports(rule)
 
+    emit("Auditing Cloud Run services...")
     for service in provider.list_cloud_run_services():
         findings += check_unauthenticated(service)
         findings += check_ingress(service)
@@ -136,6 +147,7 @@ def scan(provider: GcpProvider) -> list[Finding]:
         findings += check_min_instances(service)
         findings += check_binary_authorization(service)
 
+    emit(f"Collected {len(findings)} findings.")
     return _dedupe(findings)
 
 
