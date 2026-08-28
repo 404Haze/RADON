@@ -65,6 +65,10 @@ def create_app(
     def score_history() -> list[ScorePoint]:
         return store.score_history()
 
+    @app.get("/health")
+    def health() -> dict:
+        return {"status": "ok"}
+
     app.mount("/", StaticFiles(directory=_DASHBOARD, html=True), name="dashboard")
     return app
 

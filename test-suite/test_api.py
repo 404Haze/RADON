@@ -64,3 +64,8 @@ def test_remediate_marks_report_fixed(provider):
 def test_dashboard_serves(provider):
     client = _client(provider)
     assert client.get("/").status_code == 200
+
+
+def test_health_endpoint(provider):
+    client = _client(provider)
+    assert client.get("/health").json() == {"status": "ok"}
