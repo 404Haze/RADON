@@ -7,26 +7,45 @@
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <header>
-    <span class="brand">R.A.D.O.N.</span>
-    <span class="subtitle">Risk Analysis &amp; Detection Orchestration Node</span>
-    <span class="actions"><button id="scan-btn">Run scan</button></span>
-  </header>
-  <main>
-    <section class="score-panel">
-      <div class="score-card">
-        <div class="score-value" id="score-value">—</div>
-        <div class="score-label">Posture score</div>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-name">R.A.D.O.N.</span>
+        <span class="brand-sub">Cloud Security Posture</span>
       </div>
-      <div class="trend-card">
-        <svg id="trend-chart" role="img" aria-label="score history"></svg>
-        <div class="trend-label">Score history</div>
+      <nav class="nav">
+        <button class="nav-item active" data-tab="overview">Overview</button>
+        <button class="nav-item" data-tab="findings">Findings</button>
+        <button class="nav-item" data-tab="chat">AI Chat</button>
+        <button class="nav-item" data-tab="trends">Trends</button>
+        <button class="nav-item" data-tab="scan">Scan</button>
+      </nav>
+      <div class="sidebar-footer">
+        <button class="theme-toggle" disabled title="Light mode — coming soon">
+          <span class="toggle-dot"></span>
+        </button>
+        <span class="theme-label">Dark</span>
       </div>
-      <div class="counts" id="counts"></div>
-    </section>
-    <section class="filters" id="filters"></section>
-    <section class="findings" id="findings"></section>
-  </main>
+    </aside>
+
+    <main class="content">
+      <section class="tab active" id="tab-overview"></section>
+      <section class="tab" id="tab-findings" hidden></section>
+      <section class="tab" id="tab-chat" hidden></section>
+      <section class="tab" id="tab-trends" hidden></section>
+      <section class="tab" id="tab-scan" hidden></section>
+    </main>
+  </div>
+
+  <footer class="footer">
+    <span class="footer-brand">Metal Origami</span>
+    <span class="dot">·</span>
+    <span>Apache License 2.0</span>
+    <span class="dot">·</span>
+    <span>© 2026</span>
+  </footer>
+
+  <script src="/chart.umd.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>
