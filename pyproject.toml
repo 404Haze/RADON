@@ -27,6 +27,7 @@ include = ["radon*", "gcp_emulator*"]
 
 [tool.setuptools.package-data]
 radon = ["dashboard/*.html", "dashboard/*.css", "dashboard/*.js"]
+gcp_emulator = ["data/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["test-suite"]

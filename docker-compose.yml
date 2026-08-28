@@ -1,0 +1,59 @@
+services:
+  emulator:
+    build: .
+    command: ["python", "-m", "gcp_emulator"]
+    environment:
+      EMULATOR_HOST: "0.0.0.0"
+    expose:
+      - "8080"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/')"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  mongo:
+    image: mongo:7
+    expose:
+      - "27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  api:
+    build: .
+    command: ["uvicorn", "radon.api:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      RADON_ENDPOINT: "http://emulator:8080"
+      RADON_MONGO_URI: "mongodb://mongo:27017"
+    ports:
+      - "8000:8000"
+    depends_on:
+      - emulator
+      - mongo
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  # Optional live-LLM service. Start with: docker compose --profile llm up
+  # then set RADON_LLM_ENDPOINT=http://llama:8081 on the api service to
+  # switch triage from mock to the real model. Requires the GGUF in ./models.
+  llama:
+    build:
+      context: .
+      dockerfile: Dockerfile.llama
+    profiles: ["llm"]
+    command: ["-m", "/models/LFM2.5-1.2B-Instruct-UD-Q5_K_XL.gguf", "--host", "0.0.0.0", "--port", "8081"]
+    volumes:
+      - ./models:/models
+    expose:
+      - "8081"
+
+volumes:
+  mongo-data:

@@ -1,0 +1,29 @@
+# Builds llama.cpp pinned to v0.3.0 and serves the model over its OpenAI API.
+# The GGUF is mounted at runtime (see docker-compose.yml), not baked into the image.
+FROM ubuntu:24.04 AS build
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential cmake git ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN git clone --depth 1 --branch v0.3.0 https://github.com/ggml-org/llama.cpp.git /llama.cpp
+
+RUN cmake -S /llama.cpp -B /llama.cpp/build \
+        -DGGML_NATIVE=OFF -DGGML_CUDA=OFF -DGGML_METAL=OFF \
+    && cmake --build /llama.cpp/build --target llama-server -j"$(nproc)"
+
+FROM ubuntu:24.04
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgomp1 libstdc++6 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=build /llama.cpp/build/bin/llama-server /usr/local/bin/
+COPY --from=build /llama.cpp/build/bin/libllama.so* /usr/local/lib/
+COPY --from=build /llama.cpp/build/bin/libggml*.so* /usr/local/lib/
+RUN ldconfig
+
+EXPOSE 8081
+
+ENTRYPOINT ["llama-server"]
+CMD ["--host", "0.0.0.0", "--port", "8081"]
