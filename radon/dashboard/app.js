@@ -24,6 +24,27 @@ function cap(s) {
   return String(s).charAt(0).toUpperCase() + String(s).slice(1);
 }
 
+// ---------- theme ----------
+let currentTheme = localStorage.getItem("radon-theme") || "dark";
+
+function applyTheme(theme) {
+  const resolved = theme === "system"
+    ? (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark")
+    : theme;
+  document.documentElement.setAttribute("data-theme", resolved);
+}
+
+function setTheme(theme) {
+  currentTheme = theme;
+  localStorage.setItem("radon-theme", theme);
+  applyTheme(theme);
+}
+
+applyTheme(currentTheme);
+window.matchMedia("(prefers-color-scheme: light)").addEventListener("change", () => {
+  if (currentTheme === "system") applyTheme("system");
+});
+
 async function json(url, opts) {
   const resp = await fetch(url, opts);
   if (!resp.ok) throw new Error(`${resp.status} ${url}`);
@@ -49,48 +70,47 @@ function switchTab(name) {
 
 $$(".nav-item").forEach((b) => b.addEventListener("click", () => switchTab(b.dataset.tab)));
 
-// ---------- overview ----------
+// ---------- dashboard ----------
 let miniChart = null;
 
 async function renderOverview() {
   const el = $("#tab-overview");
-  let score = null, summary = null, history = [];
+  let score = null;
   try { score = await json("/score"); } catch { /* no scan yet */ }
-  try { summary = await json("/summary"); } catch { /* no scan yet */ }
-  try { history = await json("/score/history"); } catch { /* no scans yet */ }
 
   const counts = score
     ? [["critical", score.critical], ["high", score.high], ["medium", score.medium], ["low", score.low]]
     : [];
 
   el.innerHTML = `
-    <h2 class="tab-title">Overview</h2>
+    <h2 class="tab-title">Security Dashboard</h2>
     <p class="tab-desc">Security posture of the most recent scan.</p>
-    <div class="overview-top">
-      <div class="panel score-card">
-        <div class="score-value" style="color:${score ? scoreColor(score.score) : "var(--muted)"}">
-          ${score ? score.score : "—"}<span class="score-suffix">%</span>
+    <div class="dashboard-grid">
+      <div class="dashboard-left">
+        <div class="panel score-card">
+          <div class="score-value" style="color:${score ? scoreColor(score.score) : "var(--muted)"}">
+            ${score ? score.score : "—"}<span class="score-suffix">%</span>
+          </div>
+          <div class="score-label">Security score</div>
+          <div class="counts">
+            ${counts.map(([k, v]) => `<div class="count-row ${k}" data-sev="${k}"><span class="count-label">${k}</span><span class="count-num">${v}</span></div>`).join("")}
+          </div>
         </div>
-        <div class="score-label">Security score</div>
-        <div class="counts">
-          ${counts.map(([k, v]) => `<div class="count-row ${k}" data-sev="${k}"><span class="count-label">${k}</span><span class="count-num">${v}</span></div>`).join("")}
+        <div class="panel scan-box">
+          <div class="scan-box-title">Run a fresh scan</div>
+          <div class="scan-box-sub">Re-audit the project</div>
         </div>
       </div>
-      <div class="panel mini-chart-panel">
-        <h3>Findings over time</h3>
-        <div class="chart-box mini"><canvas id="chart-mini"></canvas></div>
+      <div class="dashboard-right">
+        <div class="panel mini-chart-panel">
+          <h3>Security History</h3>
+          <div class="chart-box mini"><canvas id="chart-mini"></canvas></div>
+        </div>
+        <div class="panel narrative">
+          <h3>Risk narrative</h3>
+          <p id="narrative-text">Loading…</p>
+        </div>
       </div>
-    </div>
-    <div class="panel narrative">
-      <h3>Risk narrative</h3>
-      <p>${esc(summary ? summary.summary : "No scan yet — run one from the Scan tab.")}</p>
-    </div>
-    <div class="panel scan-cta">
-      <div>
-        <div class="scan-cta-title">Run a fresh scan</div>
-        <div class="scan-cta-sub">Re-audit the project to refresh your posture.</div>
-      </div>
-      <button class="fix-btn">Scan now</button>
     </div>`;
 
   el.querySelectorAll(".count-row").forEach((row) => row.addEventListener("click", () => {
@@ -98,32 +118,40 @@ async function renderOverview() {
     switchTab("findings");
   }));
   el.querySelector(".mini-chart-panel").addEventListener("click", () => switchTab("trends"));
-  el.querySelector(".scan-cta").addEventListener("click", () => switchTab("scan"));
+  el.querySelector(".scan-box").addEventListener("click", () => switchTab("scan"));
 
-  if (history.length) {
-    if (miniChart) miniChart.destroy();
-    miniChart = drawMiniChart(history);
-  }
+  json("/summary").then((s) => {
+    const p = el.querySelector("#narrative-text");
+    if (p) p.textContent = s.summary;
+  }).catch(() => { const p = el.querySelector("#narrative-text"); if (p) p.textContent = "No scan yet — run one from the Scan tab."; });
+
+  json("/score/history").then((h) => {
+    if (h.length && el.querySelector("#chart-mini")) drawScoreChart(h);
+  }).catch(() => {});
 }
 
-function drawMiniChart(history) {
+function drawScoreChart(history) {
+  if (miniChart) miniChart.destroy();
   const labels = history.map((_, i) => `#${i + 1}`);
-  return new Chart($("#chart-mini"), {
+  miniChart = new Chart($("#chart-mini"), {
     type: "line",
     data: {
       labels,
-      datasets: ["critical", "high", "medium", "low"].map((s) => ({
-        label: s,
-        data: history.map((p) => p[s]),
-        borderColor: SEVERITY_COLORS[s],
-        backgroundColor: hexToRgba(SEVERITY_COLORS[s], 0.08),
-        fill: true, tension: 0.35, pointRadius: 0, borderWidth: 1.5,
-      })),
+      datasets: [{
+        label: "Score",
+        data: history.map((p) => p.score),
+        borderColor: "#38bdf8",
+        backgroundColor: "rgba(56, 189, 248, 0.12)",
+        fill: true, tension: 0.35, pointRadius: 3, borderWidth: 2,
+      }],
     },
     options: {
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false }, tooltip: { enabled: false } },
-      scales: { x: { display: false }, y: { display: false } },
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: "#5b6a80" }, grid: { color: "rgba(148, 163, 184, 0.06)" } },
+        y: { min: 0, max: 100, ticks: { color: "#5b6a80" }, grid: { color: "rgba(148, 163, 184, 0.06)" } },
+      },
     },
   });
 }
@@ -243,8 +271,12 @@ async function setStatus(fid, status) {
 }
 
 // ---------- chat ----------
-const CHAT_SYSTEM = "You are R.A.D.O.N.'s remediation assistant. Help the user understand and fix cloud security findings in their GCP project. Be concise, concrete, and specific to the finding or resource they mention.";
-let chatMessages = [{ role: "system", content: CHAT_SYSTEM }];
+let chatMessages = [];
+let chatStyle = localStorage.getItem("radon-chat-style") || "normal";
+let chatBusy = false;
+
+const SEND_ICON = `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>`;
+const STOP_ICON = `<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>`;
 
 function renderChat() {
   const el = $("#tab-chat");
@@ -257,34 +289,63 @@ function renderChat() {
       <div class="chat-log" id="chat-log"></div>
       <div class="chat-input-row">
         <textarea class="chat-input" id="chat-input" rows="2" placeholder="Ask about a finding or how to fix something…"></textarea>
-        <button class="chat-send" id="chat-send">Send</button>
+        <button class="chat-send" id="chat-send" title="Send">${SEND_ICON}</button>
       </div>
     </div>`;
   $("#chat-send").addEventListener("click", sendChat);
   $("#chat-input").addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(); }
   });
-  appendChat("assistant", "Ask me anything about your project's security posture. Click Fix on any finding to bring its context here.");
+  appendChat("assistant", "Ask me anything about your project's security posture. Click **Fix** on any finding to bring its context here.");
+}
+
+function setChatBusy(busy) {
+  chatBusy = busy;
+  const btn = $("#chat-send");
+  btn.innerHTML = busy ? STOP_ICON : SEND_ICON;
+  btn.disabled = busy;
+  $("#chat-input").disabled = busy;
 }
 
 async function sendChat() {
   const input = $("#chat-input");
   const text = input.value.trim();
-  if (!text) return;
+  if (!text || chatBusy) return;
   input.value = "";
   await sendChatText(text);
 }
 
 async function sendChatText(text) {
+  if (chatBusy) return;
   appendChat("user", text);
   chatMessages.push({ role: "user", content: text });
-  const reply = await json("/chat", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ messages: chatMessages }),
-  });
-  chatMessages.push({ role: "assistant", content: reply.reply });
-  appendChat("assistant", reply.reply);
+  setChatBusy(true);
+  const thinking = appendThinking();
+  try {
+    const reply = await json("/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages: chatMessages, style: chatStyle }),
+    });
+    thinking.remove();
+    chatMessages.push({ role: "assistant", content: reply.reply });
+    appendChat("assistant", reply.reply);
+  } catch {
+    thinking.remove();
+    appendChat("assistant", "Something went wrong — try again.");
+  } finally {
+    setChatBusy(false);
+  }
+}
+
+function appendThinking() {
+  const log = $("#chat-log");
+  const div = document.createElement("div");
+  div.className = "msg assistant";
+  div.innerHTML = `<span class="msg-role">R.A.D.O.N.</span><span class="thinking-dots"><i></i><i></i><i></i></span>`;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+  return div;
 }
 
 function appendChat(role, text) {
@@ -292,7 +353,7 @@ function appendChat(role, text) {
   const div = document.createElement("div");
   div.className = `msg ${role}`;
   if (role === "assistant") {
-    div.innerHTML = `<span class="msg-role">R.A.D.O.N.</span>${esc(text)}`;
+    div.innerHTML = `<span class="msg-role">R.A.D.O.N.</span><div class="msg-body">${renderMarkdown(text)}</div>`;
   } else {
     div.textContent = text;
   }
@@ -300,10 +361,25 @@ function appendChat(role, text) {
   log.scrollTop = log.scrollHeight;
 }
 
+function renderMarkdown(text) {
+  let s = esc(text);
+  s = s.replace(/```(\w*)\n?([\s\S]*?)```/g, "<pre><code>$2</code></pre>");
+  s = s.replace(/`([^`\n]+)`/g, "<code>$1</code>");
+  s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+  s = s.replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<em>$2</em>");
+  s = s.replace(/^### (.+)$/gm, "<h4>$1</h4>");
+  s = s.replace(/^## (.+)$/gm, "<h3>$1</h3>");
+  s = s.replace(/^# (.+)$/gm, "<h2>$1</h2>");
+  s = s.replace(/^[-*] (.+)$/gm, "• $1");
+  s = s.replace(/^\d+\. (.+)$/gm, "• $1");
+  s = s.replace(/\n/g, "<br>");
+  return s;
+}
+
 async function askAboutFinding(f) {
   switchTab("chat");
   await sendChatText(
-    `How do I fix this finding?\n\nRule: ${f.rule}\nResource: ${f.resource}\nSeverity: ${f.severity}\nDetail: ${f.detail}`);
+    `How do I fix this finding?\n\nRule: ${titleCase(f.rule)}\nResource: ${f.resource}\nSeverity: ${f.severity}\nDetail: ${f.detail}`);
 }
 
 // ---------- trends ----------
@@ -318,13 +394,13 @@ async function renderTrends() {
   el.innerHTML = `
     <h2 class="tab-title">Trends</h2>
     <p class="tab-desc">Finding counts across successive scans. Toggle a severity to show or hide its line.</p>
-    <div class="trend-toolbar">
-      ${TREND_SEVERITIES.map((s) =>
-        `<button class="filter-chip ${trendToggles[s] ? "active" : ""}" data-trend="${s}">${s}</button>`).join("")}
-    </div>
     <div class="panel chart-panel">
       <h3>Findings by severity</h3>
       <div class="chart-box"><canvas id="chart-trend"></canvas></div>
+    </div>
+    <div class="trend-toolbar">
+      ${TREND_SEVERITIES.map((s) =>
+        `<button class="trend-toggle ${trendToggles[s] ? "active" : ""}" data-trend="${s}"><span class="tdot ${s}"></span>${s}</button>`).join("")}
     </div>`;
 
   el.querySelectorAll("[data-trend]").forEach((b) => b.addEventListener("click", () => {
@@ -364,7 +440,7 @@ function chartOptions(min, max) {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { labels: { color: "#8494ab", boxWidth: 12, boxHeight: 12 } },
+      legend: { display: false },
       tooltip: { backgroundColor: "#171b25", borderColor: "#2e3749", borderWidth: 1, titleColor: "#e2e8f0", bodyColor: "#8494ab" },
     },
     scales: {
@@ -399,6 +475,8 @@ function runScan() {
   btn.textContent = "Scanning…";
   const terminal = $("#terminal");
   terminal.innerHTML = "";
+  termQueue.length = 0;
+  termRevealing = false;
 
   const es = new EventSource("/scan/stream");
   es.onmessage = (e) => {
@@ -416,13 +494,25 @@ function runScan() {
   es.onerror = () => { es.close(); btn.disabled = false; btn.textContent = "Run scan"; };
 }
 
+const termQueue = [];
+let termRevealing = false;
+
 function appendTerm(terminal, text, level = "info") {
+  termQueue.push({ text, level });
+  if (!termRevealing) revealTerm(terminal);
+}
+
+function revealTerm(terminal) {
+  if (!termQueue.length) { termRevealing = false; return; }
+  termRevealing = true;
+  const { text, level } = termQueue.shift();
   const cls = { info: "info", ok: "ok", fail: "fail", done: "done", error: "fail" }[level] || "info";
   const div = document.createElement("div");
   div.className = `term-line ${cls}`;
   div.innerHTML = `<span class="prompt">$</span> ${esc(text)}`;
   terminal.appendChild(div);
   terminal.scrollTop = terminal.scrollHeight;
+  setTimeout(() => revealTerm(terminal), 10);
 }
 
 function showScanResult(score) {
@@ -445,14 +535,56 @@ async function renderSettings() {
 
   el.innerHTML = `
     <h2 class="tab-title">Settings</h2>
-    <p class="tab-desc">Project configuration and connection status.</p>
-    <div class="panel settings-list">
-      ${settingRow("Project ID", cfg ? cfg.project_id : "—")}
-      ${settingRow("Scanner endpoint", cfg ? cfg.endpoint : "—")}
-      ${settingRow("LLM status", cfg && cfg.llm_live ? `Connected · ${cfg.llm_endpoint}` : "Disconnected (mock responses)")}
-      ${settingRow("Version", cfg ? cfg.version : "—")}
-      ${settingRow("License", "Apache 2.0")}
+    <p class="tab-desc">Appearance, data, and model configuration.</p>
+    <div class="settings-sections">
+      <div class="panel settings-section">
+        <h3>Appearance</h3>
+        <div class="seg-group">
+          ${["dark", "light", "system"].map((t) => `<button class="seg ${currentTheme === t ? "active" : ""}" data-theme="${t}">${t}</button>`).join("")}
+        </div>
+      </div>
+      <div class="panel settings-section">
+        <h3>Model style</h3>
+        <div class="seg-group">
+          ${["concise", "normal", "socratic", "informal"].map((s) => `<button class="seg ${chatStyle === s ? "active" : ""}" data-style="${s}">${s}</button>`).join("")}
+        </div>
+      </div>
+      <div class="panel settings-section">
+        <h3>Data</h3>
+        <div class="seg-group">
+          <button class="seg" id="btn-sample">Populate sample data</button>
+          <button class="seg danger" id="btn-reset">Delete all data</button>
+        </div>
+      </div>
+      <div class="panel settings-section">
+        <h3>Project</h3>
+        <div class="settings-list">
+          ${settingRow("Project ID", cfg ? cfg.project_id : "—")}
+          ${settingRow("Scanner endpoint", cfg ? cfg.endpoint : "—")}
+          ${settingRow("LLM status", cfg && cfg.llm_live ? "Connected" : "Disconnected (mock)")}
+          ${settingRow("Version", cfg ? cfg.version : "—")}
+          ${settingRow("License", "Apache 2.0")}
+        </div>
+      </div>
     </div>`;
+
+  el.querySelectorAll("[data-theme]").forEach((b) => b.addEventListener("click", () => {
+    setTheme(b.dataset.theme);
+    renderSettings();
+  }));
+  el.querySelectorAll("[data-style]").forEach((b) => b.addEventListener("click", () => {
+    chatStyle = b.dataset.style;
+    localStorage.setItem("radon-chat-style", chatStyle);
+    renderSettings();
+  }));
+  el.querySelector("#btn-sample").addEventListener("click", async () => {
+    await json("/seed", { method: "POST" });
+    switchTab("overview");
+  });
+  el.querySelector("#btn-reset").addEventListener("click", async () => {
+    await json("/reset", { method: "POST" });
+    switchTab("overview");
+  });
 }
 
 function settingRow(label, value) {
