@@ -30,6 +30,4 @@ def scan_and_triage(
     if progress:
         progress(f"Triaging {len(findings)} findings with the local model...", "info")
     reports = [Report(finding=f, assessment=triage.assess(f)) for f in findings]
-    if progress:
-        progress("Scan complete.", "ok")
     return reports

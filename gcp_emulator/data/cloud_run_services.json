@@ -11,7 +11,7 @@
     "vpcConnector": null,
     "timeout": null,
     "concurrency": null,
-    "executionEnvironment": "GEN1",
+    "executionEnvironment": "GEN2",
     "minInstances": null,
     "binaryAuthorization": "DISABLED"
   },
