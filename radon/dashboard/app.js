@@ -72,6 +72,7 @@ $$(".nav-item").forEach((b) => b.addEventListener("click", () => switchTab(b.dat
 
 // ---------- dashboard ----------
 let miniChart = null;
+let summaryCache = null;
 
 async function renderOverview() {
   const el = $("#tab-overview");
@@ -120,10 +121,16 @@ async function renderOverview() {
   el.querySelector(".mini-chart-panel").addEventListener("click", () => switchTab("trends"));
   el.querySelector(".scan-box").addEventListener("click", () => switchTab("scan"));
 
-  json("/summary").then((s) => {
+  if (summaryCache) {
     const p = el.querySelector("#narrative-text");
-    if (p) p.textContent = s.summary;
-  }).catch(() => { const p = el.querySelector("#narrative-text"); if (p) p.textContent = "No scan yet — run one from the Scan tab."; });
+    if (p) p.textContent = summaryCache;
+  } else {
+    json("/summary").then((s) => {
+      summaryCache = s.summary;
+      const p = el.querySelector("#narrative-text");
+      if (p) p.textContent = s.summary;
+    }).catch(() => { const p = el.querySelector("#narrative-text"); if (p) p.textContent = "No scan yet — run one from the Scan tab."; });
+  }
 
   json("/score/history").then((h) => {
     if (h.length && el.querySelector("#chart-mini")) drawScoreChart(h);
@@ -273,6 +280,9 @@ async function setStatus(fid, status) {
 // ---------- chat ----------
 let chatMessages = [];
 let chatStyle = localStorage.getItem("radon-chat-style") || "normal";
+let userName = localStorage.getItem("radon-user-name") || "admin";
+let chatContext = localStorage.getItem("radon-context") || "";
+let systemPrompt = localStorage.getItem("radon-system-prompt") || "";
 let chatBusy = false;
 
 const SEND_ICON = `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>`;
@@ -325,7 +335,7 @@ async function sendChatText(text) {
     const reply = await json("/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages: chatMessages, style: chatStyle }),
+      body: JSON.stringify({ messages: chatMessages, style: chatStyle, user_name: userName, context: chatContext, system_prompt: systemPrompt }),
     });
     thinking.remove();
     chatMessages.push({ role: "assistant", content: reply.reply });
@@ -392,7 +402,7 @@ async function renderTrends() {
   const history = await json("/score/history").catch(() => []);
 
   el.innerHTML = `
-    <h2 class="tab-title">Trends</h2>
+    <h2 class="tab-title">Security Trends</h2>
     <p class="tab-desc">Finding counts across successive scans. Toggle a severity to show or hide its line.</p>
     <div class="panel chart-panel">
       <h3>Findings by severity</h3>
@@ -483,8 +493,9 @@ function runScan() {
     const data = JSON.parse(e.data);
     if (data.line) appendTerm(terminal, data.line, data.level);
     else if (data.done) {
-      appendTerm(terminal, `Scan complete — score ${data.score.score}% (${data.score.critical + data.score.high + data.score.medium + data.score.low + data.score.info} findings)`, "done");
+      appendTerm(terminal, `Scan complete. Security score: ${data.score.score}% (${data.score.critical + data.score.high + data.score.medium + data.score.low + data.score.info} findings)`, "done");
       es.close(); btn.disabled = false; btn.textContent = "Run scan";
+      summaryCache = null;
       showScanResult(data.score);
     } else if (data.error) {
       appendTerm(terminal, `ERROR: ${data.error}`, "error");
@@ -550,6 +561,21 @@ async function renderSettings() {
         </div>
       </div>
       <div class="panel settings-section">
+        <h3>AI personalization</h3>
+        <div class="field">
+          <label class="field-label" for="set-name">What the AI calls you</label>
+          <input class="field-input" id="set-name" type="text" value="${esc(userName)}" placeholder="admin">
+        </div>
+        <div class="field">
+          <label class="field-label" for="set-context">Project context</label>
+          <textarea class="field-input" id="set-context" rows="2" placeholder="This project runs on Google Cloud Platform (GCP).">${esc(chatContext)}</textarea>
+        </div>
+        <div class="field">
+          <label class="field-label" for="set-system">System prompt</label>
+          <textarea class="field-input" id="set-system" rows="3" placeholder="Always provide actionable remediation steps. Ask the user for more information when needed.">${esc(systemPrompt)}</textarea>
+        </div>
+      </div>
+      <div class="panel settings-section">
         <h3>Data</h3>
         <div class="seg-group">
           <button class="seg" id="btn-sample">Populate sample data</button>
@@ -577,12 +603,17 @@ async function renderSettings() {
     localStorage.setItem("radon-chat-style", chatStyle);
     renderSettings();
   }));
+  el.querySelector("#set-name").addEventListener("input", (e) => { userName = e.target.value.trim(); localStorage.setItem("radon-user-name", userName); });
+  el.querySelector("#set-context").addEventListener("input", (e) => { chatContext = e.target.value; localStorage.setItem("radon-context", chatContext); });
+  el.querySelector("#set-system").addEventListener("input", (e) => { systemPrompt = e.target.value; localStorage.setItem("radon-system-prompt", systemPrompt); });
   el.querySelector("#btn-sample").addEventListener("click", async () => {
     await json("/seed", { method: "POST" });
+    summaryCache = null;
     switchTab("overview");
   });
   el.querySelector("#btn-reset").addEventListener("click", async () => {
     await json("/reset", { method: "POST" });
+    summaryCache = null;
     switchTab("overview");
   });
 }

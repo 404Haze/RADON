@@ -1,6 +1,6 @@
 :root {
   --bg: #0b0e14;
-  --bg-grid: rgba(148, 163, 184, 0.045);
+  --bg-grid: rgba(148, 163, 184, 0.10);
   --panel: #12151d;
   --panel-2: #171b25;
   --border: #232a3a;
@@ -20,7 +20,7 @@
   --font-mono: "JetBrains Mono", "SF Mono", "Cascadia Code", Consolas, "Liberation Mono", monospace;
 }
 
-[data-theme="light"] {
+html[data-theme="light"] {
   --bg: #eef1f6;
   --bg-grid: rgba(15, 23, 42, 0.05);
   --panel: #ffffff;
@@ -52,7 +52,7 @@ body {
   background-image:
     linear-gradient(var(--bg-grid) 1px, transparent 1px),
     linear-gradient(90deg, var(--bg-grid) 1px, transparent 1px);
-  background-size: 28px 28px;
+  background-size: 14px 14px;
   background-attachment: fixed;
   color: var(--text);
   font-size: 14px;
@@ -233,6 +233,11 @@ button:disabled { cursor: not-allowed; }
 .seg.active { color: var(--text); border-color: var(--accent); background: var(--panel); }
 .seg.danger { color: var(--critical); border-color: rgba(244, 63, 94, 0.4); }
 .seg.danger:hover { background: rgba(244, 63, 94, 0.1); }
+.field { margin-bottom: 0.9rem; }
+.field:last-child { margin-bottom: 0; }
+.field-label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 0.35rem; }
+.field-input { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 0.5rem 0.65rem; font-size: 0.88rem; font-family: inherit; resize: vertical; }
+.field-input:focus { outline: none; border-color: var(--accent); }
 .settings-list { display: flex; flex-direction: column; max-width: 600px; }
 .setting-row { display: flex; justify-content: space-between; gap: 1rem; padding: 0.65rem 0; border-bottom: 1px solid var(--border); }
 .setting-row:last-child { border-bottom: none; }
