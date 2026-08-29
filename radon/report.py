@@ -23,13 +23,13 @@ class Report(BaseModel):
 def scan_and_triage(
     provider: GcpProvider,
     triage: Triage,
-    progress: Callable[[str], None] | None = None,
+    progress: Callable[[str, str], None] | None = None,
 ) -> list[Report]:
     """Scan a provider and pair every finding with its assessment."""
     findings = scan(provider, progress=progress)
     if progress:
-        progress(f"Triaging {len(findings)} findings with the local model...")
+        progress(f"Triaging {len(findings)} findings with the local model...", "info")
     reports = [Report(finding=f, assessment=triage.assess(f)) for f in findings]
     if progress:
-        progress("Scan complete.")
+        progress("Scan complete.", "ok")
     return reports

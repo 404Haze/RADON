@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import queue
 import threading
 from collections import Counter
@@ -14,7 +15,7 @@ from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from radon.chat import Chat, MockChat, get_chat
+from radon.chat import Chat, LlmChat, MockChat, get_chat
 from radon.config import Config
 from radon.models.finding import Finding
 from radon.providers import get_provider
@@ -22,7 +23,7 @@ from radon.providers.base import GcpProvider
 from radon.report import Report, scan_and_triage
 from radon.score import ScorePoint, build_score
 from radon.storage import Storage, get_storage
-from radon.triage import get_triage
+from radon.triage import MockTriage
 from radon.triage.base import Triage
 
 _DASHBOARD = Path(__file__).parent / "dashboard"
@@ -70,7 +71,7 @@ def create_app(
     """Build the app, with dependencies injectable for tests."""
     app = FastAPI(title="R.A.D.O.N.", version="0.1.0")
     store = storage or get_storage()
-    tri = triage or get_triage()
+    tri = triage or MockTriage()  # finding descriptions stay fast; the live LLM is reserved for chat/narrative
     ch = chat or get_chat()
 
     def resolve_provider() -> GcpProvider:
@@ -127,6 +128,16 @@ def create_app(
     def health() -> dict:
         return {"status": "ok"}
 
+    @app.get("/config")
+    def config() -> dict:
+        return {
+            "project_id": os.environ.get("RADON_PROJECT_ID", "demo-project"),
+            "endpoint": os.environ.get("RADON_ENDPOINT", "http://localhost:8080"),
+            "llm_endpoint": os.environ.get("RADON_LLM_ENDPOINT"),
+            "llm_live": isinstance(ch, LlmChat),
+            "version": "0.1.0",
+        }
+
     @app.get("/scan/stream")
     def scan_stream() -> StreamingResponse:
         q = queue.Queue()
@@ -134,30 +145,26 @@ def create_app(
         def _run() -> None:
             try:
                 reports = scan_and_triage(
-                    resolve_provider(), tri, progress=lambda line: q.put(("line", line))
+                    resolve_provider(), tri,
+                    progress=lambda msg, level: q.put(("line", {"line": msg, "level": level})),
                 )
                 score = build_score([r.finding for r in reports], scan_id=uuid4().hex)
                 store.save_scan(reports, score)
-                q.put(("done", score.model_dump(mode="json")))
+                q.put(("done", {"done": True, "score": score.model_dump(mode="json")}))
             except Exception as exc:  # pragma: no cover - defensive
-                q.put(("error", str(exc)))
+                q.put(("error", {"error": str(exc)}))
 
         threading.Thread(target=_run, daemon=True).start()
 
         async def gen():
             while True:
                 try:
-                    kind, payload = q.get(timeout=0.5)
+                    kind, data = q.get(timeout=0.5)
                 except queue.Empty:
                     yield ": keepalive\n\n"
                     continue
-                if kind == "line":
-                    yield f"data: {json.dumps({'line': payload})}\n\n"
-                elif kind == "done":
-                    yield f"data: {json.dumps({'done': True, 'score': payload})}\n\n"
-                    return
-                else:
-                    yield f"data: {json.dumps({'error': payload})}\n\n"
+                yield f"data: {json.dumps(data)}\n\n"
+                if kind != "line":
                     return
 
         return StreamingResponse(gen(), media_type="text/event-stream")

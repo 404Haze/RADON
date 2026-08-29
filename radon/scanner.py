@@ -66,16 +66,17 @@ from radon.models.finding import Finding
 from radon.providers.base import GcpProvider
 
 
-def scan(provider: GcpProvider, progress: Callable[[str], None] | None = None) -> list[Finding]:
+def scan(provider: GcpProvider, progress: Callable[[str, str], None] | None = None) -> list[Finding]:
     """Run every check against the provider and return deduplicated findings."""
 
-    def emit(msg: str) -> None:
+    def emit(msg: str, level: str = "info") -> None:
         if progress:
-            progress(msg)
+            progress(msg, level)
 
     findings: list[Finding] = []
 
-    emit("Enumerating IAM resources...")
+    emit("Checking IAM...")
+    before = len(findings)
     policy = provider.get_iam_policy()
     service_accounts = provider.list_service_accounts()
     keys = provider.list_service_account_keys()
@@ -96,7 +97,9 @@ def scan(provider: GcpProvider, progress: Callable[[str], None] | None = None) -
     findings += check_excessive_keys(keys)
     findings += check_user_managed_keys(keys)
 
-    emit("Auditing GCS buckets and objects...")
+    emit(f"IAM: {len(findings) - before} findings", "fail" if len(findings) - before else "ok")
+    emit("Checking GCS buckets...")
+    before = len(findings)
     for bucket in provider.list_buckets():
         findings += check_public_bucket(bucket)
         findings += check_public_bucket_iam(bucket)
@@ -112,7 +115,9 @@ def scan(provider: GcpProvider, progress: Callable[[str], None] | None = None) -
     for obj in provider.list_objects():
         findings += check_public_object(obj)
 
-    emit("Auditing Compute instances and firewalls...")
+    emit(f"GCS: {len(findings) - before} findings", "fail" if len(findings) - before else "ok")
+    emit("Checking Compute instances...")
+    before = len(findings)
     networks = {n["name"]: n.get("subnetMode", "") for n in provider.list_networks()}
 
     for instance in provider.list_instances():
@@ -133,7 +138,9 @@ def scan(provider: GcpProvider, progress: Callable[[str], None] | None = None) -
         findings += check_open_ssh_rdp(rule)
         findings += check_firewall_all_ports(rule)
 
-    emit("Auditing Cloud Run services...")
+    emit(f"Compute: {len(findings) - before} findings", "fail" if len(findings) - before else "ok")
+    emit("Checking Cloud Run services...")
+    before = len(findings)
     for service in provider.list_cloud_run_services():
         findings += check_unauthenticated(service)
         findings += check_ingress(service)
@@ -147,6 +154,7 @@ def scan(provider: GcpProvider, progress: Callable[[str], None] | None = None) -
         findings += check_min_instances(service)
         findings += check_binary_authorization(service)
 
+    emit(f"Cloud Run: {len(findings) - before} findings", "fail" if len(findings) - before else "ok")
     emit(f"Collected {len(findings)} findings.")
     return _dedupe(findings)
 
