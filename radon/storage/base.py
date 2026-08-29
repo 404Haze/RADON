@@ -26,3 +26,11 @@ class Storage(ABC):
     @abstractmethod
     def set_status(self, finding_id: str, status: str) -> None:
         """Update a finding's remediation status."""
+
+    @abstractmethod
+    def seed_history(self, points: list[ScorePoint]) -> None:
+        """Append pre-generated sample history points (for the demo)."""
+
+    @abstractmethod
+    def reset(self) -> None:
+        """Clear all stored data (reports, history, ignored set)."""

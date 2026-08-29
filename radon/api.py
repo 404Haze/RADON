@@ -7,6 +7,7 @@ import os
 import queue
 import threading
 from collections import Counter
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from uuid import uuid4
 
@@ -32,6 +33,19 @@ _SEVERITY_ORDER = ["critical", "high", "medium", "low", "info"]
 
 class ChatRequest(BaseModel):
     messages: list[dict[str, str]]
+    style: str = "normal"
+
+
+_CHAT_SYSTEM = "You are R.A.D.O.N.'s remediation assistant for a GCP cloud security posture scanner. Help the user understand and fix security findings."
+
+_CHAT_STYLES = {
+    "concise": "Keep responses short and to the point.",
+    "normal": "",
+    "socratic": "Prefer guiding questions over direct answers.",
+    "informal": "Keep a casual, conversational tone.",
+}
+
+_PREPROMPT = "Always provide actionable remediation steps. Ask the user for more information when needed. Refer to the user as 'admin'."
 
 
 def _narrative_prompt(findings: list[Finding]) -> str:
@@ -51,15 +65,30 @@ def _narrative_prompt(findings: list[Finding]) -> str:
 
 def _deterministic_summary(findings: list[Finding]) -> str:
     counts = Counter(f.severity.value for f in findings)
-    services = Counter(f.service for f in findings).most_common(2)
-    services_txt = " and ".join(s for s, _ in services) if services else "the project"
+    top = sorted(findings, key=lambda f: _SEVERITY_ORDER.index(f.severity.value))[:3]
+    issues = ", ".join(f.rule.replace("_", " ") for f in top)
     return (
-        f"This project surfaced {len(findings)} issues — {counts['critical']} critical, "
-        f"{counts['high']} high, {counts['medium']} medium, {counts['low']} low. "
-        f"Most concentrate in {services_txt}, driven by public exposure and "
-        f"over-privileged principals. Resolve the critical and high findings first, "
-        f"then tighten the rest toward a least-privilege baseline."
+        f"{len(findings)} issues — {counts['critical']} critical, {counts['high']} high, "
+        f"{counts['medium']} medium, {counts['low']} low. The most urgent are {issues}."
     )
+
+
+def _sample_history() -> list[ScorePoint]:
+    scores = [42, 48, 45, 52, 58, 55, 63, 71, 78, 86, 92, 88]
+    sev = [
+        (7, 12, 31, 18), (6, 11, 29, 17), (6, 11, 28, 17), (5, 9, 25, 15),
+        (4, 8, 22, 14), (4, 8, 21, 13), (3, 6, 18, 11), (2, 5, 15, 9),
+        (1, 3, 12, 8), (1, 2, 10, 7), (0, 1, 8, 6), (0, 1, 7, 6),
+    ]
+    now = datetime.now(timezone.utc)
+    points = []
+    for i, (score, (c, h, m, l)) in enumerate(zip(scores, sev)):
+        points.append(ScorePoint(
+            scan_id=f"sample-{i}",
+            timestamp=now - timedelta(days=len(scores) - 1 - i),
+            score=score, critical=c, high=h, medium=m, low=l, info=0,
+        ))
+    return points
 
 
 def create_app(
@@ -99,7 +128,9 @@ def create_app(
 
     @app.post("/chat")
     def chat_endpoint(req: ChatRequest) -> dict:
-        return {"reply": ch.respond(req.messages)}
+        system = " ".join(x for x in [_CHAT_SYSTEM, _CHAT_STYLES.get(req.style, ""), _PREPROMPT] if x)
+        messages = [{"role": "system", "content": system}, *req.messages]
+        return {"reply": ch.respond(messages)}
 
     @app.get("/summary")
     def summary() -> dict:
@@ -137,6 +168,17 @@ def create_app(
             "llm_live": isinstance(ch, LlmChat),
             "version": "0.1.0",
         }
+
+    @app.post("/seed")
+    def seed() -> dict:
+        points = _sample_history()
+        store.seed_history(points)
+        return {"seeded": len(points)}
+
+    @app.post("/reset")
+    def reset() -> dict:
+        store.reset()
+        return {"status": "reset"}
 
     @app.get("/scan/stream")
     def scan_stream() -> StreamingResponse:

@@ -60,10 +60,44 @@ from radon.checks.iam import (
     check_unrotated_keys,
     check_user_managed_keys,
 )
+from collections import Counter
 from collections.abc import Callable
 
 from radon.models.finding import Finding
 from radon.providers.base import GcpProvider
+
+_SERVICE_RULES = {
+    "iam": [
+        "public_binding", "primitive_role_on_user", "overprivileged_service_account",
+        "service_account_admin_role", "custom_role_broad_permissions", "external_member",
+        "cross_project_service_account", "dormant_service_account", "disabled_service_account_with_role",
+        "orphaned_key", "unrotated_key", "key_without_expiry",
+        "excessive_service_account_keys", "user_managed_key",
+    ],
+    "gcs": [
+        "public_bucket", "public_bucket_iam", "public_object", "no_uniform_bucket_level_access",
+        "versioning_disabled", "external_project_access", "no_cmek", "no_access_logging",
+        "retention_policy_missing", "lifecycle_rule_missing", "single_region",
+    ],
+    "compute": [
+        "public_ip", "default_service_account", "no_customer_supplied_encryption_key",
+        "serial_port_enabled", "open_firewall", "open_ssh_rdp", "firewall_all_ports",
+        "default_network", "legacy_network", "project_wide_ssh_keys", "os_login_disabled",
+        "shielded_vm_disabled", "ip_forwarding_enabled", "metadata_contains_secrets",
+    ],
+    "cloud_run": [
+        "unauthenticated_service", "open_ingress", "secret_in_env", "no_resource_limits",
+        "no_vpc_connector", "latest_image_tag", "no_timeout", "no_concurrency_limit",
+        "execution_environment_gen1", "no_min_instances", "binary_authorization_disabled",
+    ],
+}
+
+
+def _emit_rules(emit, rules: list[str], findings: list[Finding], before: int) -> None:
+    counts = Counter(f.rule for f in findings[before:])
+    for rule in rules:
+        n = counts[rule]
+        emit(f"{rule}: {n} finding(s)" if n else f"{rule}: clean", "fail" if n else "ok")
 
 
 def scan(provider: GcpProvider, progress: Callable[[str, str], None] | None = None) -> list[Finding]:
@@ -97,7 +131,7 @@ def scan(provider: GcpProvider, progress: Callable[[str, str], None] | None = No
     findings += check_excessive_keys(keys)
     findings += check_user_managed_keys(keys)
 
-    emit(f"IAM: {len(findings) - before} findings", "fail" if len(findings) - before else "ok")
+    _emit_rules(emit, _SERVICE_RULES["iam"], findings, before)
     emit("Checking GCS buckets...")
     before = len(findings)
     for bucket in provider.list_buckets():
@@ -115,7 +149,7 @@ def scan(provider: GcpProvider, progress: Callable[[str, str], None] | None = No
     for obj in provider.list_objects():
         findings += check_public_object(obj)
 
-    emit(f"GCS: {len(findings) - before} findings", "fail" if len(findings) - before else "ok")
+    _emit_rules(emit, _SERVICE_RULES["gcs"], findings, before)
     emit("Checking Compute instances...")
     before = len(findings)
     networks = {n["name"]: n.get("subnetMode", "") for n in provider.list_networks()}
@@ -138,7 +172,7 @@ def scan(provider: GcpProvider, progress: Callable[[str, str], None] | None = No
         findings += check_open_ssh_rdp(rule)
         findings += check_firewall_all_ports(rule)
 
-    emit(f"Compute: {len(findings) - before} findings", "fail" if len(findings) - before else "ok")
+    _emit_rules(emit, _SERVICE_RULES["compute"], findings, before)
     emit("Checking Cloud Run services...")
     before = len(findings)
     for service in provider.list_cloud_run_services():
@@ -154,7 +188,7 @@ def scan(provider: GcpProvider, progress: Callable[[str, str], None] | None = No
         findings += check_min_instances(service)
         findings += check_binary_authorization(service)
 
-    emit(f"Cloud Run: {len(findings) - before} findings", "fail" if len(findings) - before else "ok")
+    _emit_rules(emit, _SERVICE_RULES["cloud_run"], findings, before)
     emit(f"Collected {len(findings)} findings.")
     return _dedupe(findings)
 

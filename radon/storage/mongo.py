@@ -40,3 +40,12 @@ class MongoStorage(Storage):
         else:
             self._ignored.delete_one({"_id": finding_id})
         self._reports.update_one({"finding.id": finding_id}, {"$set": {"status": status}})
+
+    def seed_history(self, points: list[ScorePoint]) -> None:
+        if points:
+            self._history.insert_many([p.model_dump() for p in points])
+
+    def reset(self) -> None:
+        self._reports.delete_many({})
+        self._history.delete_many({})
+        self._ignored.delete_many({})

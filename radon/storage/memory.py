@@ -35,3 +35,11 @@ class MemoryStorage(Storage):
             if report.finding.id == finding_id:
                 report.status = status
                 return
+
+    def seed_history(self, points: list[ScorePoint]) -> None:
+        self._history.extend(points)
+
+    def reset(self) -> None:
+        self._reports = []
+        self._history = []
+        self._ignored = set()
