@@ -10,8 +10,13 @@
   <div class="app">
     <aside class="sidebar">
       <div class="brand">
-        <span class="brand-name">R.A.D.O.N.</span>
-        <span class="brand-sub">Cloud Security Posture</span>
+        <div class="brand-text">
+          <span class="brand-name">R.A.D.O.N.</span>
+          <span class="brand-sub">Cloud Security</span>
+        </div>
+        <button class="theme-toggle" disabled title="Light mode — coming soon">
+          <span class="toggle-dot"></span>
+        </button>
       </div>
       <nav class="nav">
         <button class="nav-item active" data-tab="overview">Overview</button>
@@ -19,13 +24,8 @@
         <button class="nav-item" data-tab="chat">AI Chat</button>
         <button class="nav-item" data-tab="trends">Trends</button>
         <button class="nav-item" data-tab="scan">Scan</button>
+        <button class="nav-item" data-tab="settings">Settings</button>
       </nav>
-      <div class="sidebar-footer">
-        <button class="theme-toggle" disabled title="Light mode — coming soon">
-          <span class="toggle-dot"></span>
-        </button>
-        <span class="theme-label">Dark</span>
-      </div>
     </aside>
 
     <main class="content">
@@ -34,6 +34,7 @@
       <section class="tab" id="tab-chat" hidden></section>
       <section class="tab" id="tab-trends" hidden></section>
       <section class="tab" id="tab-scan" hidden></section>
+      <section class="tab" id="tab-settings" hidden></section>
     </main>
   </div>
 

@@ -49,7 +49,7 @@ body {
   background: rgba(18, 21, 29, 0.9);
 }
 
-.brand { padding: 1.4rem 1.2rem 1.1rem; border-bottom: 1px solid var(--border); }
+.brand { display: flex; align-items: center; justify-content: space-between; padding: 1.4rem 1.2rem 1.1rem; border-bottom: 1px solid var(--border); }
 .brand-name { font-size: 1.25rem; font-weight: 700; letter-spacing: 0.12em; }
 .brand-sub {
   display: block;
@@ -176,8 +176,30 @@ button:disabled { cursor: not-allowed; }
 .badge.ignored { background: rgba(168, 85, 247, 0.14); color: var(--ignored); }
 
 /* ---------- overview ---------- */
-.overview-grid { display: grid; grid-template-columns: 260px 1fr; gap: 1.4rem; align-items: start; }
+.overview-top { display: grid; grid-template-columns: 260px 1fr; gap: 1.4rem; align-items: stretch; }
 
+.mini-chart-panel { display: flex; flex-direction: column; }
+.mini-chart-panel h3 { margin: 0 0 0.9rem; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); text-align: center; }
+.chart-box.mini { height: 220px; flex: 1; }
+
+.narrative { line-height: 1.65; margin-top: 1.4rem; }
+.narrative h3 { margin: 0 0 0.6rem; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+.narrative p { margin: 0; font-size: 1rem; color: var(--text); }
+
+.scan-cta { display: flex; align-items: center; justify-content: space-between; margin-top: 1.4rem; cursor: pointer; transition: border-color 0.12s; }
+.scan-cta:hover { border-color: var(--accent); }
+.scan-cta-title { font-weight: 650; }
+.scan-cta-sub { color: var(--muted); font-size: 0.84rem; }
+
+.count-row { cursor: pointer; transition: filter 0.12s; }
+.count-row:hover { filter: brightness(1.25); }
+
+/* ---------- settings ---------- */
+.settings-list { display: flex; flex-direction: column; max-width: 600px; }
+.setting-row { display: flex; justify-content: space-between; gap: 1rem; padding: 0.65rem 0; border-bottom: 1px solid var(--border); }
+.setting-row:last-child { border-bottom: none; }
+.setting-label { color: var(--muted); font-size: 0.88rem; }
+.setting-value { font-family: var(--font-mono); font-size: 0.86rem; color: var(--text); text-align: right; word-break: break-all; }
 .score-card { text-align: center; padding: 1.6rem 1.2rem; }
 .score-value {
   font-family: var(--font-mono);
@@ -236,11 +258,12 @@ button:disabled { cursor: not-allowed; }
   user-select: none;
 }
 .service-head .service-name { font-weight: 650; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.82rem; }
-.service-head .service-count { color: var(--muted); font-family: var(--font-mono); font-size: 0.8rem; }
-.service-head .service-caret { margin-left: auto; color: var(--faint); transition: transform 0.15s; }
+.service-head .service-count { margin-left: auto; color: var(--muted); font-family: var(--font-mono); font-size: 0.8rem; }
+.service-head .service-caret { color: var(--faint); transition: transform 0.15s; flex-shrink: 0; }
 .service-group.open .service-caret { transform: rotate(90deg); }
 
-.finding-list { margin-top: 0.4rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.finding-list { margin-top: 0.4rem; display: none; flex-direction: column; gap: 0.4rem; }
+.service-group.open .finding-list { display: flex; }
 
 .finding {
   background: var(--panel);
@@ -248,7 +271,10 @@ button:disabled { cursor: not-allowed; }
   border-left: 3px solid var(--border-strong);
   border-radius: 7px;
   padding: 0.7rem 0.9rem;
+  cursor: pointer;
 }
+.finding-caret { color: var(--faint); transition: transform 0.15s; flex-shrink: 0; }
+.finding.open .finding-caret { transform: rotate(90deg); }
 .finding.critical { border-left-color: var(--critical); }
 .finding.high { border-left-color: var(--high); }
 .finding.medium { border-left-color: var(--medium); }
@@ -256,10 +282,9 @@ button:disabled { cursor: not-allowed; }
 .finding.info { border-left-color: var(--info); }
 .finding.ignored { opacity: 0.55; }
 
-.finding-row { display: flex; align-items: center; gap: 0.7rem; flex-wrap: wrap; }
-.finding-row .rule { font-weight: 600; font-size: 0.92rem; }
-.finding-row .resource { color: var(--muted); font-size: 0.82rem; font-family: var(--font-mono); }
-.finding-row .spacer { flex: 1; }
+.finding-row { display: flex; align-items: center; gap: 0.7rem; }
+.finding-row .rule { font-weight: 600; font-size: 0.92rem; white-space: nowrap; }
+.finding-row .resource { color: var(--muted); font-size: 0.82rem; font-family: var(--font-mono); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .finding-detail { color: var(--muted); font-size: 0.84rem; margin-top: 0.4rem; }
 .finding-assess { margin-top: 0.5rem; border-top: 1px solid var(--border); padding-top: 0.5rem; display: none; }
@@ -340,9 +365,10 @@ button:disabled { cursor: not-allowed; }
 .chat-hint { color: var(--faint); font-size: 0.76rem; margin-top: 0.5rem; text-align: center; }
 
 /* ---------- trends ---------- */
+.trend-toolbar { display: flex; gap: 0.5rem; margin-bottom: 1.2rem; }
 .chart-grid { display: flex; flex-direction: column; gap: 1.3rem; }
 .chart-panel { padding: 1.2rem 1.4rem; }
-.chart-panel h3 { margin: 0 0 0.9rem; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+.chart-panel h3 { margin: 0 0 0.9rem; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); text-align: center; }
 .chart-box { position: relative; height: 240px; }
 
 /* ---------- scan ---------- */
@@ -364,8 +390,10 @@ button:disabled { cursor: not-allowed; }
   line-height: 1.7;
 }
 .term-line { white-space: pre-wrap; word-break: break-word; }
-.term-line .prompt { color: var(--low); }
-.term-line.ok { color: var(--muted); }
+.term-line .prompt { color: var(--faint); margin-right: 0.5rem; }
+.term-line.info { color: var(--muted); }
+.term-line.ok { color: var(--low); }
+.term-line.fail { color: var(--critical); }
 .term-line.done { color: var(--low); font-weight: 600; }
 .term-cursor { display: inline-block; width: 8px; height: 1em; background: var(--accent); vertical-align: text-bottom; animation: blink 1s steps(1) infinite; }
 @keyframes blink { 50% { opacity: 0; } }
@@ -382,5 +410,5 @@ button:disabled { cursor: not-allowed; }
 @media (max-width: 800px) {
   .sidebar { width: 64px; }
   .brand-name, .brand-sub, .nav-item { font-size: 0; }
-  .overview-grid { grid-template-columns: 1fr; }
+  .overview-top { grid-template-columns: 1fr; }
 }

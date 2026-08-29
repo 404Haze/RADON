@@ -16,6 +16,14 @@ function esc(s) {
   }[c]));
 }
 
+function titleCase(s) {
+  return String(s).split("_").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+}
+
+function cap(s) {
+  return String(s).charAt(0).toUpperCase() + String(s).slice(1);
+}
+
 async function json(url, opts) {
   const resp = await fetch(url, opts);
   if (!resp.ok) throw new Error(`${resp.status} ${url}`);
@@ -36,40 +44,88 @@ function switchTab(name) {
     t.hidden = !active;
     t.classList.toggle("active", active);
   });
-  ({ overview: renderOverview, findings: renderFindings, chat: renderChat, trends: renderTrends, scan: renderScan }[name])();
+  ({ overview: renderOverview, findings: renderFindings, chat: renderChat, trends: renderTrends, scan: renderScan, settings: renderSettings }[name])();
 }
 
 $$(".nav-item").forEach((b) => b.addEventListener("click", () => switchTab(b.dataset.tab)));
 
 // ---------- overview ----------
+let miniChart = null;
+
 async function renderOverview() {
   const el = $("#tab-overview");
-  let score = null, summary = null;
+  let score = null, summary = null, history = [];
   try { score = await json("/score"); } catch { /* no scan yet */ }
   try { summary = await json("/summary"); } catch { /* no scan yet */ }
+  try { history = await json("/score/history"); } catch { /* no scans yet */ }
 
   const counts = score
-    ? [["critical", score.critical], ["high", score.high], ["medium", score.medium], ["low", score.low], ["info", score.info]]
+    ? [["critical", score.critical], ["high", score.high], ["medium", score.medium], ["low", score.low]]
     : [];
 
   el.innerHTML = `
     <h2 class="tab-title">Overview</h2>
     <p class="tab-desc">Security posture of the most recent scan.</p>
-    <div class="overview-grid">
+    <div class="overview-top">
       <div class="panel score-card">
         <div class="score-value" style="color:${score ? scoreColor(score.score) : "var(--muted)"}">
           ${score ? score.score : "—"}<span class="score-suffix">%</span>
         </div>
         <div class="score-label">Security score</div>
         <div class="counts">
-          ${counts.map(([k, v]) => `<div class="count-row ${k}"><span class="count-label">${k}</span><span class="count-num">${v}</span></div>`).join("")}
+          ${counts.map(([k, v]) => `<div class="count-row ${k}" data-sev="${k}"><span class="count-label">${k}</span><span class="count-num">${v}</span></div>`).join("")}
         </div>
       </div>
-      <div class="panel narrative">
-        <h3>Risk narrative</h3>
-        <p>${esc(summary ? summary.summary : "No scan yet — run one from the Scan tab.")}</p>
+      <div class="panel mini-chart-panel">
+        <h3>Findings over time</h3>
+        <div class="chart-box mini"><canvas id="chart-mini"></canvas></div>
       </div>
+    </div>
+    <div class="panel narrative">
+      <h3>Risk narrative</h3>
+      <p>${esc(summary ? summary.summary : "No scan yet — run one from the Scan tab.")}</p>
+    </div>
+    <div class="panel scan-cta">
+      <div>
+        <div class="scan-cta-title">Run a fresh scan</div>
+        <div class="scan-cta-sub">Re-audit the project to refresh your posture.</div>
+      </div>
+      <button class="fix-btn">Scan now</button>
     </div>`;
+
+  el.querySelectorAll(".count-row").forEach((row) => row.addEventListener("click", () => {
+    severityFilter = row.dataset.sev;
+    switchTab("findings");
+  }));
+  el.querySelector(".mini-chart-panel").addEventListener("click", () => switchTab("trends"));
+  el.querySelector(".scan-cta").addEventListener("click", () => switchTab("scan"));
+
+  if (history.length) {
+    if (miniChart) miniChart.destroy();
+    miniChart = drawMiniChart(history);
+  }
+}
+
+function drawMiniChart(history) {
+  const labels = history.map((_, i) => `#${i + 1}`);
+  return new Chart($("#chart-mini"), {
+    type: "line",
+    data: {
+      labels,
+      datasets: ["critical", "high", "medium", "low"].map((s) => ({
+        label: s,
+        data: history.map((p) => p[s]),
+        borderColor: SEVERITY_COLORS[s],
+        backgroundColor: hexToRgba(SEVERITY_COLORS[s], 0.08),
+        fill: true, tension: 0.35, pointRadius: 0, borderWidth: 1.5,
+      })),
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { enabled: false } },
+      scales: { x: { display: false }, y: { display: false } },
+    },
+  });
 }
 
 // ---------- findings ----------
@@ -157,10 +213,10 @@ function findingCard(r) {
          data-id="${esc(f.id)}" data-rule="${esc(f.rule)}" data-resource="${esc(f.resource)}"
          data-detail="${esc(f.detail)}" data-severity="${esc(f.severity)}">
       <div class="finding-row">
+        <span class="finding-caret">▸</span>
         <span class="badge ${f.severity}">${f.severity}</span>
-        <span class="rule">${esc(f.rule)}</span>
+        <span class="rule">${esc(titleCase(f.rule))}</span>
         <span class="resource">${esc(f.resource)}</span>
-        <span class="spacer"></span>
         <div class="status-menu">
           <button class="status-btn">${esc(r.status)}</button>
           <div class="menu">
@@ -171,7 +227,7 @@ function findingCard(r) {
         </div>
         <button class="fix-btn">Fix</button>
       </div>
-      <div class="finding-detail">${esc(f.detail)}</div>
+      <div class="finding-detail">${esc(cap(f.detail))}</div>
       <div class="finding-assess">
         <div class="a-label">What's wrong</div>
         <div class="a-text">${esc(a.explanation)}</div>
@@ -203,7 +259,6 @@ function renderChat() {
         <textarea class="chat-input" id="chat-input" rows="2" placeholder="Ask about a finding or how to fix something…"></textarea>
         <button class="chat-send" id="chat-send">Send</button>
       </div>
-      <div class="chat-hint">No live model loaded — responses are mocked. Set RADON_LLM_ENDPOINT for real triage.</div>
     </div>`;
   $("#chat-send").addEventListener("click", sendChat);
   $("#chat-input").addEventListener("keydown", (e) => {
@@ -252,7 +307,9 @@ async function askAboutFinding(f) {
 }
 
 // ---------- trends ----------
-let trendCharts = [];
+const TREND_SEVERITIES = ["critical", "high", "medium", "low"];
+let trendToggles = { critical: true, high: true, medium: true, low: true };
+let trendChart = null;
 
 async function renderTrends() {
   const el = $("#tab-trends");
@@ -260,56 +317,46 @@ async function renderTrends() {
 
   el.innerHTML = `
     <h2 class="tab-title">Trends</h2>
-    <p class="tab-desc">Posture and finding counts across successive scans.</p>
-    <div class="chart-grid">
-      <div class="panel chart-panel">
-        <h3>Security score</h3>
-        <div class="chart-box"><canvas id="chart-score"></canvas></div>
-      </div>
-      <div class="panel chart-panel">
-        <h3>Findings by severity</h3>
-        <div class="chart-box"><canvas id="chart-severity"></canvas></div>
-      </div>
+    <p class="tab-desc">Finding counts across successive scans. Toggle a severity to show or hide its line.</p>
+    <div class="trend-toolbar">
+      ${TREND_SEVERITIES.map((s) =>
+        `<button class="filter-chip ${trendToggles[s] ? "active" : ""}" data-trend="${s}">${s}</button>`).join("")}
+    </div>
+    <div class="panel chart-panel">
+      <h3>Findings by severity</h3>
+      <div class="chart-box"><canvas id="chart-trend"></canvas></div>
     </div>`;
 
-  trendCharts.forEach((c) => c.destroy());
-  trendCharts = [];
-  const labels = history.map((_, i) => `#${i + 1}`);
+  el.querySelectorAll("[data-trend]").forEach((b) => b.addEventListener("click", () => {
+    trendToggles[b.dataset.trend] = !trendToggles[b.dataset.trend];
+    renderTrends();
+  }));
 
   if (history.length) {
-    trendCharts.push(new Chart($("#chart-score"), {
-      type: "line",
-      data: {
-        labels,
-        datasets: [{
-          label: "Score",
-          data: history.map((p) => p.score),
-          borderColor: "#38bdf8",
-          backgroundColor: "rgba(56, 189, 248, 0.12)",
-          fill: true, tension: 0.35, pointRadius: 3, borderWidth: 2,
-        }],
-      },
-      options: chartOptions(0, 100),
-    }));
-
-    trendCharts.push(new Chart($("#chart-severity"), {
-      type: "line",
-      data: {
-        labels,
-        datasets: SEVERITIES.map((s) => ({
-          label: s,
-          data: history.map((p) => p[s]),
-          borderColor: SEVERITY_COLORS[s],
-          backgroundColor: hexToRgba(SEVERITY_COLORS[s], 0.1),
-          fill: true, tension: 0.35, pointRadius: 2.5, borderWidth: 2,
-        })),
-      },
-      options: chartOptions(null, null),
-    }));
+    drawTrendChart(history);
   } else {
-    el.querySelector(".chart-grid").innerHTML =
+    el.querySelector(".chart-panel").innerHTML =
       `<div class="empty"><div class="empty-big">No scans yet</div><div class="empty-sub">Run a scan from the Scan tab to build up a trend.</div></div>`;
   }
+}
+
+function drawTrendChart(history) {
+  if (trendChart) trendChart.destroy();
+  const labels = history.map((_, i) => `#${i + 1}`);
+  const datasets = TREND_SEVERITIES
+    .filter((s) => trendToggles[s])
+    .map((s) => ({
+      label: s,
+      data: history.map((p) => p[s]),
+      borderColor: SEVERITY_COLORS[s],
+      backgroundColor: hexToRgba(SEVERITY_COLORS[s], 0.1),
+      fill: true, tension: 0.35, pointRadius: 2.5, borderWidth: 2,
+    }));
+  trendChart = new Chart($("#chart-trend"), {
+    type: "line",
+    data: { labels, datasets },
+    options: chartOptions(null, null),
+  });
 }
 
 function chartOptions(min, max) {
@@ -336,7 +383,7 @@ function hexToRgba(hex, a) {
 function renderScan() {
   const el = $("#tab-scan");
   el.innerHTML = `
-    <h2 class="tab-title">Scan</h2>
+    <h2 class="tab-title">Security Scan</h2>
     <p class="tab-desc">Run a scan against the configured GCP project and stream its progress.</p>
     <div class="scan-layout">
       <div class="scan-actions"><button class="scan-btn" id="scan-btn">Run scan</button></div>
@@ -356,7 +403,7 @@ function runScan() {
   const es = new EventSource("/scan/stream");
   es.onmessage = (e) => {
     const data = JSON.parse(e.data);
-    if (data.line) appendTerm(terminal, data.line);
+    if (data.line) appendTerm(terminal, data.line, data.level);
     else if (data.done) {
       appendTerm(terminal, `Scan complete — score ${data.score.score}% (${data.score.critical + data.score.high + data.score.medium + data.score.low + data.score.info} findings)`, "done");
       es.close(); btn.disabled = false; btn.textContent = "Run scan";
@@ -369,7 +416,8 @@ function runScan() {
   es.onerror = () => { es.close(); btn.disabled = false; btn.textContent = "Run scan"; };
 }
 
-function appendTerm(terminal, text, cls = "ok") {
+function appendTerm(terminal, text, level = "info") {
+  const cls = { info: "info", ok: "ok", fail: "fail", done: "done", error: "fail" }[level] || "info";
   const div = document.createElement("div");
   div.className = `term-line ${cls}`;
   div.innerHTML = `<span class="prompt">$</span> ${esc(text)}`;
@@ -387,6 +435,28 @@ function showScanResult(score) {
         ${score.critical} critical · ${score.high} high · ${score.medium} medium · ${score.low} low · ${score.info} info
       </p>
     </div>`;
+}
+
+// ---------- settings ----------
+async function renderSettings() {
+  const el = $("#tab-settings");
+  let cfg = null;
+  try { cfg = await json("/config"); } catch { /* no config */ }
+
+  el.innerHTML = `
+    <h2 class="tab-title">Settings</h2>
+    <p class="tab-desc">Project configuration and connection status.</p>
+    <div class="panel settings-list">
+      ${settingRow("Project ID", cfg ? cfg.project_id : "—")}
+      ${settingRow("Scanner endpoint", cfg ? cfg.endpoint : "—")}
+      ${settingRow("LLM status", cfg && cfg.llm_live ? `Connected · ${cfg.llm_endpoint}` : "Disconnected (mock responses)")}
+      ${settingRow("Version", cfg ? cfg.version : "—")}
+      ${settingRow("License", "Apache 2.0")}
+    </div>`;
+}
+
+function settingRow(label, value) {
+  return `<div class="setting-row"><span class="setting-label">${esc(label)}</span><span class="setting-value">${esc(value)}</span></div>`;
 }
 
 // boot
