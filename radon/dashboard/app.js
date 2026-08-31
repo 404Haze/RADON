@@ -45,14 +45,6 @@ window.matchMedia("(prefers-color-scheme: light)").addEventListener("change", ()
   if (currentTheme === "system") applyTheme("system");
 });
 
-// ---------- sidebar collapse ----------
-const sidebar = $("#sidebar");
-if (localStorage.getItem("radon-sidebar") === "collapsed") sidebar.classList.add("collapsed");
-$("#collapse-btn").addEventListener("click", () => {
-  sidebar.classList.toggle("collapsed");
-  localStorage.setItem("radon-sidebar", sidebar.classList.contains("collapsed") ? "collapsed" : "expanded");
-});
-
 async function json(url, opts) {
   const resp = await fetch(url, opts);
   if (!resp.ok) throw new Error(`${resp.status} ${url}`);
@@ -388,7 +380,8 @@ function renderMarkdown(text) {
   s = s.replace(/^# (.+)$/gm, "<h2>$1</h2>");
   s = s.replace(/^(\s*)[-*] (.+)$/gm, "$1• $2");
   s = s.replace(/^(\s*)\d+\. (.+)$/gm, "$1• $2");
-  s = s.replace(/\n{2,}/g, "\n");
+  s = s.replace(/\n{3,}/g, "\n\n");
+  s = s.replace(/\n\n/g, "<br><br>");
   s = s.replace(/\n/g, "<br>");
   return s;
 }
