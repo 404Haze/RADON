@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import queue
+import random
 import threading
 from collections import Counter
 from datetime import datetime, timedelta, timezone
@@ -79,22 +80,28 @@ def _deterministic_summary(findings: list[Finding]) -> str:
 
 
 def _sample_history() -> list[ScorePoint]:
-    # Realistic drift: varied deltas, runs of gains with occasional regressions, small drop at the end.
-    scores = [38, 41, 47, 45, 50, 54, 52, 58, 57, 55, 61, 66, 63, 70, 68, 76, 72]
-    sev = [
-        (10, 16, 35, 22), (9, 15, 33, 21), (8, 13, 30, 19), (9, 14, 31, 20),
-        (7, 12, 28, 18), (6, 11, 26, 17), (7, 12, 27, 17), (5, 10, 24, 15),
-        (5, 10, 25, 16), (6, 11, 26, 16), (4, 9, 22, 14), (3, 8, 19, 13),
-        (4, 8, 20, 14), (2, 6, 16, 11), (2, 7, 17, 12), (1, 4, 13, 9),
-        (1, 5, 14, 10),
-    ]
+    # Noisy improving trend: each severity takes its own random walk (downward
+    # drift + independent noise) so the lines don't move in lockstep. The score
+    # derives from the counts via the same penalty weighting as posture_score
+    # (critical 40, high 20, medium 10, low 5).
+    rng = random.Random(7)  # fixed seed -> reproducible demo
+    n = 17
+    crit, high, med, low = 10.0, 15.0, 34.0, 21.0
     now = datetime.now(timezone.utc)
     points = []
-    for i, (score, (c, h, m, l)) in enumerate(zip(scores, sev)):
+    for i in range(n):
+        step = 1.0 if i == n - 1 else -1.0  # final point regresses (drop at the top)
+        crit = max(0.0, crit + step * 0.7 + rng.uniform(-0.5, 0.5))
+        high = max(0.0, high + step * 0.95 + rng.uniform(-0.6, 0.6))
+        med = max(0.0, med + step * 1.9 + rng.uniform(-1.1, 1.1))
+        low = max(0.0, low + step * 1.25 + rng.uniform(-0.8, 0.8))
+        c, h, m, l = round(crit), round(high), round(med), round(low)
+        penalty = 40 * c + 20 * h + 10 * m + 5 * l
         points.append(ScorePoint(
             scan_id=f"sample-{i}",
-            timestamp=now - timedelta(days=len(scores) - 1 - i),
-            score=score, critical=c, high=h, medium=m, low=l, info=0,
+            timestamp=now - timedelta(days=n - 1 - i),
+            score=round(100 * 100 / (100 + penalty)),
+            critical=c, high=h, medium=m, low=l, info=0,
         ))
     return points
 
