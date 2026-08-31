@@ -19,14 +19,14 @@ from pydantic import BaseModel
 
 from radon.chat import Chat, LlmChat, MockChat, get_chat
 from radon.config import Config
-from radon.models.finding import Finding
+from radon.models.finding import Finding, Severity
 from radon.providers import get_provider
 from radon.providers.base import GcpProvider
 from radon.report import Report, scan_and_triage
 from radon.score import ScorePoint, build_score
 from radon.storage import Storage, get_storage
 from radon.triage import MockTriage
-from radon.triage.base import Triage
+from radon.triage.base import Assessment, Triage
 
 _DASHBOARD = Path(__file__).parent / "dashboard"
 _SEVERITY_ORDER = ["critical", "high", "medium", "low", "info"]
@@ -79,23 +79,34 @@ def _deterministic_summary(findings: list[Finding]) -> str:
     )
 
 
-def _sample_history() -> list[ScorePoint]:
-    # Noisy improving trend: each severity takes its own random walk (downward
-    # drift + independent noise) so the lines don't move in lockstep. The score
-    # derives from the counts via the same penalty weighting as posture_score
-    # (critical 40, high 20, medium 10, low 5).
-    rng = random.Random(7)  # fixed seed -> reproducible demo
+_SAMPLE_RULES = {
+    "critical": [("public_bucket", "gcs"), ("public_binding", "iam"), ("secret_in_env", "cloud_run"), ("orphaned_key", "iam")],
+    "high": [("unauthenticated_service", "cloud_run"), ("external_member", "iam"), ("default_service_account", "compute"), ("public_bucket_iam", "gcs")],
+    "medium": [("open_ingress", "cloud_run"), ("open_firewall", "compute"), ("no_cmek", "gcs"), ("versioning_disabled", "gcs"), ("latest_image_tag", "cloud_run")],
+    "low": [("no_timeout", "cloud_run"), ("no_concurrency_limit", "cloud_run"), ("single_region", "gcs"), ("no_resource_limits", "cloud_run")],
+}
+
+
+def _sample_history(rng: random.Random) -> list[ScorePoint]:
+    # Each scan rolls 40-67 vulnerabilities with fixed severity odds (critical 10%,
+    # high 20%, medium 40%, low 30%); the score is derived from the counts via the
+    # same penalty weighting as posture_score (critical 40, high 20, medium 10, low 5).
     n = 17
-    crit, high, med, low = 10.0, 15.0, 34.0, 21.0
     now = datetime.now(timezone.utc)
     points = []
     for i in range(n):
-        step = 1.0 if i == n - 1 else -1.0  # final point regresses (drop at the top)
-        crit = max(0.0, crit + step * 0.7 + rng.uniform(-0.5, 0.5))
-        high = max(0.0, high + step * 0.95 + rng.uniform(-0.6, 0.6))
-        med = max(0.0, med + step * 1.9 + rng.uniform(-1.1, 1.1))
-        low = max(0.0, low + step * 1.25 + rng.uniform(-0.8, 0.8))
-        c, h, m, l = round(crit), round(high), round(med), round(low)
+        total = rng.randint(40, 67)
+        c = h = m = l = 0
+        for _ in range(total):
+            r = rng.random()
+            if r < 0.10:
+                c += 1
+            elif r < 0.30:
+                h += 1
+            elif r < 0.70:
+                m += 1
+            else:
+                l += 1
         penalty = 40 * c + 20 * h + 10 * m + 5 * l
         points.append(ScorePoint(
             scan_id=f"sample-{i}",
@@ -104,6 +115,33 @@ def _sample_history() -> list[ScorePoint]:
             critical=c, high=h, medium=m, low=l, info=0,
         ))
     return points
+
+
+def _sample_reports(rng: random.Random, counts: dict[str, int]) -> list[Report]:
+    """Demo reports matching the latest sample scan's severity counts."""
+    reports = []
+    n = 0
+    for sev in ("critical", "high", "medium", "low"):
+        pool = _SAMPLE_RULES[sev]
+        for _ in range(counts.get(sev, 0)):
+            rule, service = pool[rng.randrange(len(pool))]
+            n += 1
+            resource = f"demo-{service}-resource-{n}"
+            finding = Finding(
+                id=f"sample:{sev}:{n}",
+                rule=rule,
+                severity=Severity(sev),
+                service=service,
+                resource=resource,
+                detail=f"Sample {sev} issue: {rule.replace('_', ' ')} on {resource}.",
+            )
+            assessment = Assessment(
+                severity=Severity(sev),
+                explanation="Sample data for the demo.",
+                remediation=f"Address {rule.replace('_', ' ')} on {resource}.",
+            )
+            reports.append(Report(finding=finding, assessment=assessment))
+    return reports
 
 
 def create_app(
@@ -190,8 +228,13 @@ def create_app(
 
     @app.post("/seed")
     def seed() -> dict:
-        points = _sample_history()
-        store.seed_history(points)
+        rng = random.Random()
+        points = _sample_history(rng)
+        latest = points[-1]
+        counts = {"critical": latest.critical, "high": latest.high, "medium": latest.medium, "low": latest.low}
+        reports = _sample_reports(rng, counts)
+        store.seed_history(points[:-1])
+        store.save_scan(reports, latest)
         return {"seeded": len(points)}
 
     @app.post("/reset")
