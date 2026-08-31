@@ -79,14 +79,14 @@ def _deterministic_summary(findings: list[Finding]) -> str:
 
 
 def _sample_history() -> list[ScorePoint]:
-    # Spiky mountain: jittery up-and-down climb, small drop at the very end.
-    scores = [36, 54, 40, 59, 44, 63, 49, 70, 53, 75, 58, 81, 64, 87, 71, 90, 85]
+    # Realistic drift: varied deltas, runs of gains with occasional regressions, small drop at the end.
+    scores = [38, 41, 47, 45, 50, 54, 52, 58, 57, 55, 61, 66, 63, 70, 68, 76, 72]
     sev = [
-        (10, 15, 35, 21), (5, 11, 27, 15), (9, 14, 32, 19), (4, 9, 24, 14),
-        (8, 13, 29, 17), (3, 8, 22, 13), (7, 12, 26, 16), (2, 6, 18, 10),
-        (6, 10, 23, 14), (1, 4, 15, 9), (5, 8, 20, 12), (1, 3, 12, 7),
-        (4, 6, 17, 10), (0, 2, 9, 6), (3, 5, 14, 8), (0, 1, 7, 5),
-        (0, 1, 8, 5),
+        (10, 16, 35, 22), (9, 15, 33, 21), (8, 13, 30, 19), (9, 14, 31, 20),
+        (7, 12, 28, 18), (6, 11, 26, 17), (7, 12, 27, 17), (5, 10, 24, 15),
+        (5, 10, 25, 16), (6, 11, 26, 16), (4, 9, 22, 14), (3, 8, 19, 13),
+        (4, 8, 20, 14), (2, 6, 16, 11), (2, 7, 17, 12), (1, 4, 13, 9),
+        (1, 5, 14, 10),
     ]
     now = datetime.now(timezone.utc)
     points = []
