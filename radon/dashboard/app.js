@@ -45,6 +45,14 @@ window.matchMedia("(prefers-color-scheme: light)").addEventListener("change", ()
   if (currentTheme === "system") applyTheme("system");
 });
 
+// ---------- sidebar collapse ----------
+const sidebar = $("#sidebar");
+if (localStorage.getItem("radon-sidebar") === "collapsed") sidebar.classList.add("collapsed");
+$("#collapse-btn").addEventListener("click", () => {
+  sidebar.classList.toggle("collapsed");
+  localStorage.setItem("radon-sidebar", sidebar.classList.contains("collapsed") ? "collapsed" : "expanded");
+});
+
 async function json(url, opts) {
   const resp = await fetch(url, opts);
   if (!resp.ok) throw new Error(`${resp.status} ${url}`);
@@ -149,7 +157,7 @@ function drawScoreChart(history) {
         data: history.map((p) => p.score),
         borderColor: "#38bdf8",
         backgroundColor: "rgba(56, 189, 248, 0.12)",
-        fill: true, tension: 0.35, pointRadius: 3, borderWidth: 2,
+        fill: true, tension: 0, pointRadius: 3, borderWidth: 2,
       }],
     },
     options: {
@@ -216,29 +224,22 @@ function renderServiceGroups(container) {
       </div>`;
   }).join("") || `<div class="empty"><div class="empty-big">No findings</div><div class="empty-sub">Run a scan to see results.</div></div>`;
 
-  container.querySelectorAll(".service-head").forEach((h) =>
-    h.addEventListener("click", () => h.parentElement.classList.toggle("open")));
-  container.querySelectorAll(".finding-row").forEach((row) =>
-    row.addEventListener("click", (e) => {
-      if (e.target.closest("button")) return;
-      row.closest(".finding").classList.toggle("open");
-    }));
-  container.querySelectorAll(".status-btn").forEach((b) =>
-    b.addEventListener("click", (e) => {
-      e.stopPropagation();
-      b.parentElement.classList.toggle("open");
-    }));
-  container.querySelectorAll(".menu button").forEach((b) =>
-    b.addEventListener("click", (e) => {
-      e.stopPropagation();
-      setStatus(b.closest(".finding").dataset.id, b.dataset.status);
-    }));
-  container.querySelectorAll(".fix-btn").forEach((b) =>
-    b.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const c = b.closest(".finding").dataset;
+  container.onclick = (e) => {
+    const menuBtn = e.target.closest(".menu button");
+    if (menuBtn) { setStatus(menuBtn.closest(".finding").dataset.id, menuBtn.dataset.status); return; }
+    const fixBtn = e.target.closest(".fix-btn");
+    if (fixBtn) {
+      const c = fixBtn.closest(".finding").dataset;
       askAboutFinding({ rule: c.rule, resource: c.resource, severity: c.severity, detail: c.detail });
-    }));
+      return;
+    }
+    const statusBtn = e.target.closest(".status-btn");
+    if (statusBtn) { statusBtn.closest(".status-menu").classList.toggle("open"); return; }
+    const head = e.target.closest(".service-head");
+    if (head) { head.closest(".service-group").classList.toggle("open"); return; }
+    const finding = e.target.closest(".finding");
+    if (finding) { finding.classList.toggle("open"); return; }
+  };
 }
 
 function findingCard(r) {
@@ -372,16 +373,22 @@ function appendChat(role, text) {
 }
 
 function renderMarkdown(text) {
-  let s = esc(text);
+  let s = String(text).replace(/\r\n?/g, "\n");
+  s = esc(s);
   s = s.replace(/```(\w*)\n?([\s\S]*?)```/g, "<pre><code>$2</code></pre>");
   s = s.replace(/`([^`\n]+)`/g, "<code>$1</code>");
+  s = s.replace(/~~([^~]+)~~/g, "<del>$1</del>");
   s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+  s = s.replace(/__([^_]+)__/g, "<strong>$1</strong>");
   s = s.replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<em>$2</em>");
+  s = s.replace(/(^|[^_])_([^_\n]+)_/g, "$1<em>$2</em>");
+  s = s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
   s = s.replace(/^### (.+)$/gm, "<h4>$1</h4>");
   s = s.replace(/^## (.+)$/gm, "<h3>$1</h3>");
   s = s.replace(/^# (.+)$/gm, "<h2>$1</h2>");
-  s = s.replace(/^[-*] (.+)$/gm, "• $1");
-  s = s.replace(/^\d+\. (.+)$/gm, "• $1");
+  s = s.replace(/^(\s*)[-*] (.+)$/gm, "$1• $2");
+  s = s.replace(/^(\s*)\d+\. (.+)$/gm, "$1• $2");
+  s = s.replace(/\n{2,}/g, "\n");
   s = s.replace(/\n/g, "<br>");
   return s;
 }
@@ -436,7 +443,7 @@ function drawTrendChart(history) {
       data: history.map((p) => p[s]),
       borderColor: SEVERITY_COLORS[s],
       backgroundColor: hexToRgba(SEVERITY_COLORS[s], 0.1),
-      fill: true, tension: 0.35, pointRadius: 2.5, borderWidth: 2,
+      fill: true, tension: 0, pointRadius: 2.5, borderWidth: 2,
     }));
   trendChart = new Chart($("#chart-trend"), {
     type: "line",
