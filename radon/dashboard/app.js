@@ -279,15 +279,17 @@ let systemPrompt = localStorage.getItem("radon-system-prompt") || "";
 let chatBusy = false;
 
 const SEND_ICON = `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>`;
-const STOP_ICON = `<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>`;
+const STOP_ICON = `<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>`;
 
 function renderChat() {
   const el = $("#tab-chat");
   if (el.dataset.built) return;
   el.dataset.built = "1";
   el.innerHTML = `
-    <h2 class="tab-title">AI Chat</h2>
-    <p class="tab-desc">Ask about a finding or how to remediate your posture. Click Fix on any finding to jump here with its context.</p>
+    <div class="chat-header">
+      <h2 class="tab-title">AI Chat</h2>
+      <p class="tab-desc">Ask about a finding or how to remediate your posture. Click Fix on any finding to jump here with its context.</p>
+    </div>
     <div class="chat-wrap">
       <div class="chat-log" id="chat-log"></div>
       <div class="chat-input-row">
@@ -298,6 +300,15 @@ function renderChat() {
   $("#chat-send").addEventListener("click", sendChat);
   $("#chat-input").addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(); }
+  });
+  $("#chat-log").addEventListener("click", (e) => {
+    const btn = e.target.closest(".copy-btn");
+    if (!btn) return;
+    const code = btn.closest(".code-block").querySelector("code").textContent;
+    navigator.clipboard.writeText(code).then(() => {
+      btn.textContent = "Copied";
+      setTimeout(() => { btn.textContent = "Copy"; }, 1200);
+    });
   });
   appendChat("assistant", "Ask me anything about your project's security posture. Click **Fix** on any finding to bring its context here.");
 }
@@ -345,7 +356,7 @@ function appendThinking() {
   const log = $("#chat-log");
   const div = document.createElement("div");
   div.className = "msg assistant";
-  div.innerHTML = `<span class="msg-role">R.A.D.O.N.</span><span class="thinking-dots"><i></i><i></i><i></i></span>`;
+  div.innerHTML = `<span class="msg-role">R.A.D.O.N.</span><span class="thinking">Thinking <span class="thinking-dots"><i></i><i></i><i></i></span></span>`;
   log.appendChild(div);
   log.scrollTop = log.scrollHeight;
   return div;
@@ -367,7 +378,13 @@ function appendChat(role, text) {
 function renderMarkdown(text) {
   let s = String(text).replace(/\r\n?/g, "\n");
   s = esc(s);
-  s = s.replace(/```(\w*)\n?([\s\S]*?)```/g, "<pre><code>$2</code></pre>");
+  // Code blocks -> placeholders, restored after newline conversion so their
+  // internal newlines survive; they get a language header + copy button.
+  const blocks = [];
+  s = s.replace(/```(\w*)\n?([\s\S]*?)```/g, (m, lang, code) => {
+    blocks.push({ lang: (lang || "code").trim(), code });
+    return `\u0000B${blocks.length - 1}\u0000`;
+  });
   s = s.replace(/`([^`\n]+)`/g, "<code>$1</code>");
   s = s.replace(/~~([^~]+)~~/g, "<del>$1</del>");
   s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
@@ -380,9 +397,15 @@ function renderMarkdown(text) {
   s = s.replace(/^# (.+)$/gm, "<h2>$1</h2>");
   s = s.replace(/^(\s*)[-*] (.+)$/gm, "$1• $2");
   s = s.replace(/^(\s*)\d+\. (.+)$/gm, "$1• $2");
+  s = s.replace(/^\s*(?:---|\*\*\*|___)\s*$/gm, "<hr>");
+  s = s.replace(/[ \t]+$/gm, "");
   s = s.replace(/\n{3,}/g, "\n\n");
-  s = s.replace(/\n\n/g, "<br><br>");
+  s = s.replace(/\n\n/g, '<div class="para"></div>');
   s = s.replace(/\n/g, "<br>");
+  s = s.replace(/\u0000B(\d+)\u0000/g, (m, i) => {
+    const b = blocks[+i];
+    return `<div class="code-block"><div class="code-head"><span class="code-lang">${b.lang}</span><button class="copy-btn" type="button">Copy</button></div><pre><code>${b.code}</code></pre></div>`;
+  });
   return s;
 }
 
@@ -468,15 +491,42 @@ function hexToRgba(hex, a) {
 // ---------- scan ----------
 function renderScan() {
   const el = $("#tab-scan");
+  if (el.dataset.built) return;
+  el.dataset.built = "1";
   el.innerHTML = `
     <h2 class="tab-title">Security Scan</h2>
     <p class="tab-desc">Run a scan against the configured GCP project and stream its progress.</p>
     <div class="scan-layout">
       <div class="scan-actions"><button class="scan-btn" id="scan-btn">Run scan</button></div>
-      <div class="terminal" id="terminal"><div class="term-line"><span class="prompt">$</span> ready — click "Run scan"</div></div>
+      <div class="terminal" id="terminal"></div>
       <div class="scan-result" id="scan-result"></div>
     </div>`;
   $("#scan-btn").addEventListener("click", runScan);
+  bootScan();
+}
+
+const BOOT_LINES = [
+  ["initializing radon scanner", "info"],
+  ["loading model LFM-2.5-1.2B-Instruct (Q5_K_XL)   ok", "ok"],
+  ["loading modules [iam gcs compute cloud_run]   ok", "ok"],
+  ["gcp emulator connected @ 127.0.0.1:8080", "info"],
+  ["ready", "done"],
+];
+let bootTimer = null;
+
+function bootScan() {
+  const terminal = $("#terminal");
+  let i = 0;
+  (function step() {
+    if (i >= BOOT_LINES.length) { bootTimer = null; return; }
+    const [text, level] = BOOT_LINES[i++];
+    const div = document.createElement("div");
+    div.className = `term-line ${level}`;
+    div.innerHTML = `<span class="prompt">$</span> ${esc(text)}`;
+    terminal.appendChild(div);
+    terminal.scrollTop = terminal.scrollHeight;
+    bootTimer = setTimeout(step, 150);
+  })();
 }
 
 function runScan() {
@@ -485,6 +535,7 @@ function runScan() {
   btn.textContent = "Scanning…";
   const terminal = $("#terminal");
   terminal.innerHTML = "";
+  if (bootTimer) { clearTimeout(bootTimer); bootTimer = null; }
   termQueue.length = 0;
   termRevealing = false;
 
