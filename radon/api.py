@@ -53,6 +53,15 @@ _DEFAULT_CONTEXT = "This project runs on Google Cloud Platform (GCP)."
 
 _DEFAULT_SYSTEM_PROMPT = "Always provide actionable remediation steps. Ask the user for more information when needed."
 
+_FINDING_DIRECTIVE = (
+    "When the user references a specific finding, its Rule, Resource, Severity, and Detail "
+    "fields are complete and authoritative. Explain the finding in plain terms and give "
+    "concrete remediation steps directly; do not ask the user to restate or clarify what "
+    "those fields already say. GCP: 'allUsers' and 'allAuthenticatedUsers' mean public "
+    "access (readable by anyone on the internet); a public bucket or object is readable by "
+    "everyone; customer-managed encryption keys (CMEK) are keys the user holds and controls."
+)
+
 
 def _narrative_prompt(findings: list[Finding]) -> str:
     counts = Counter(f.severity.value for f in findings)
@@ -184,7 +193,7 @@ def create_app(
         context = req.context or _DEFAULT_CONTEXT
         system_prompt = req.system_prompt or _DEFAULT_SYSTEM_PROMPT
         name = f"Refer to the user as '{req.user_name}'." if req.user_name else ""
-        parts = [_CHAT_BASE, context, system_prompt, _CHAT_STYLES.get(req.style, ""), name]
+        parts = [_CHAT_BASE, context, system_prompt, _CHAT_STYLES.get(req.style, ""), _FINDING_DIRECTIVE, name]
         system = " ".join(x for x in parts if x)
         messages = [{"role": "system", "content": system}, *req.messages]
         return {"reply": ch.respond(messages)}
