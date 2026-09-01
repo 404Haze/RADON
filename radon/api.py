@@ -18,7 +18,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from radon.chat import Chat, LlmChat, MockChat, get_chat
-from radon.config import Config
+from radon.config import Config, runtime_config, save_runtime_config
 from radon.models.finding import Finding, Severity
 from radon.providers import get_provider
 from radon.providers.base import GcpProvider
@@ -29,6 +29,7 @@ from radon.triage import MockTriage
 from radon.triage.base import Assessment, Triage
 
 _DASHBOARD = Path(__file__).parent / "dashboard"
+_MODELS_DIR = Path(__file__).parent.parent / "models"
 _SEVERITY_ORDER = ["critical", "high", "medium", "low", "info"]
 
 
@@ -234,6 +235,37 @@ def create_app(
             "llm_live": isinstance(ch, LlmChat),
             "version": "0.1.0",
         }
+
+    @app.get("/settings")
+    def get_settings() -> dict:
+        cfg = runtime_config()
+        return {
+            "model": cfg.get("model", ""),
+            "provider": cfg.get("provider", "simulator"),
+            "endpoint": cfg.get("endpoint") or os.environ.get("RADON_ENDPOINT", "http://127.0.0.1:8080"),
+            "project_id": cfg.get("project_id") or os.environ.get("RADON_PROJECT_ID", "demo-project"),
+            "llm_endpoint": cfg.get("llm_endpoint") or os.environ.get("RADON_LLM_ENDPOINT", ""),
+            "mongo_uri": cfg.get("mongo_uri") or os.environ.get("RADON_MONGO_URI", ""),
+            "models_dir": str(_MODELS_DIR),
+            "llm_live": isinstance(ch, LlmChat),
+        }
+
+    @app.put("/settings")
+    def put_settings(req: dict) -> dict:
+        cfg = runtime_config()
+        for key in ("model", "provider", "endpoint", "project_id", "llm_endpoint", "mongo_uri"):
+            if key in req:
+                cfg[key] = req[key]
+        save_runtime_config(cfg)
+        return {"status": "saved", "restart_required": True}
+
+    @app.get("/models")
+    def list_models() -> dict:
+        files = []
+        if _MODELS_DIR.exists():
+            for p in sorted(_MODELS_DIR.glob("*.gguf")):
+                files.append({"name": p.name, "size_mb": round(p.stat().st_size / 1e6, 1)})
+        return {"models": files, "models_dir": str(_MODELS_DIR)}
 
     @app.post("/seed")
     def seed() -> dict:
