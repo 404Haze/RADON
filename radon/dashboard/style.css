@@ -193,7 +193,8 @@ button:disabled { cursor: not-allowed; }
 .count-row:hover { filter: brightness(1.25); }
 
 /* ---------- settings ---------- */
-.settings-sections { display: flex; flex-direction: column; gap: 1.2rem; max-width: 640px; }
+.settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; align-items: start; }
+.settings-col { display: flex; flex-direction: column; gap: 1.2rem; min-width: 0; }
 .settings-section h3 { margin: 0 0 0.8rem; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
 .seg-group { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .seg {
@@ -214,7 +215,18 @@ button:disabled { cursor: not-allowed; }
 .field-label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 0.35rem; }
 .field-input { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 0.5rem 0.65rem; font-size: 0.88rem; font-family: inherit; resize: vertical; }
 .field-input:focus { outline: none; border-color: var(--accent); }
-.settings-list { display: flex; flex-direction: column; max-width: 600px; }
+.settings-list { display: flex; flex-direction: column; }
+.settings-actions { display: flex; align-items: center; gap: 0.8rem; margin-top: 1.2rem; }
+.model-list { display: flex; flex-direction: column; gap: 0.4rem; }
+.model-opt { text-align: left; padding: 0.4rem 0.6rem; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; font-size: 0.85rem; font-family: inherit; }
+.model-opt:hover { color: var(--text); border-color: var(--border-strong); }
+.model-opt.active { color: var(--text); border-color: var(--accent); background: var(--panel-2); }
+.model-dl { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; font-size: 0.85rem; }
+.model-dl .seg { padding: 0.25rem 0.6rem; font-size: 0.8rem; text-decoration: none; }
+.model-current { font-size: 0.9rem; color: var(--text); word-break: break-all; }
+.muted { color: var(--muted); }
+.small { font-size: 0.8rem; }
+.mono.small { font-family: var(--font-mono); font-size: 0.75rem; color: var(--muted); word-break: break-all; }
 .setting-row { display: flex; justify-content: space-between; gap: 1rem; padding: 0.65rem 0; border-bottom: 1px solid var(--border); }
 .setting-row:last-child { border-bottom: none; }
 .setting-label { color: var(--muted); font-size: 0.88rem; }

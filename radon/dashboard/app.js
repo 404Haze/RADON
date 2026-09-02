@@ -590,59 +590,127 @@ function showScanResult(score) {
 }
 
 // ---------- settings ----------
+const COMPATIBLE_MODELS = [
+  { name: "LFM-2.5-1.2B", repo: "unsloth/LFM2.5-1.2B-Instruct-UD", size: "0.8 GB", quant: "Q5_K_XL" },
+  { name: "LFM2.5-8B-A1B", repo: "unsloth/LFM2.5-8B-A1B", size: "~5.5 GB", quant: "Q5" },
+  { name: "Gemma 4 26B-A4B", repo: "unsloth/gemma-4-26B-A4B", size: "~14 GB", quant: "Q4" },
+];
+
 async function renderSettings() {
   const el = $("#tab-settings");
-  let cfg = null;
-  try { cfg = await json("/config"); } catch { /* no config */ }
+  let cfg = null, s = null, m = null;
+  try { cfg = await json("/config"); } catch {}
+  try { s = await json("/settings"); } catch {}
+  try { m = await json("/models"); } catch {}
+  const settings = s || {};
+  const detected = (m && m.models) || [];
+  const modelsDir = settings.models_dir || "";
 
   el.innerHTML = `
     <h2 class="tab-title">Settings</h2>
-    <p class="tab-desc">Appearance, data, and model configuration.</p>
-    <div class="settings-sections">
-      <div class="panel settings-section">
-        <h3>Appearance</h3>
-        <div class="seg-group">
-          ${["dark", "light", "system"].map((t) => `<button class="seg ${currentTheme === t ? "active" : ""}" data-theme="${t}">${t}</button>`).join("")}
+    <p class="tab-desc">Appearance, model, connection, and data configuration.</p>
+    <div class="settings-grid">
+      <div class="settings-col">
+        <div class="panel settings-section">
+          <h3>Appearance</h3>
+          <div class="seg-group">
+            ${["dark", "light", "system"].map((t) => `<button class="seg ${currentTheme === t ? "active" : ""}" data-theme="${t}">${t}</button>`).join("")}
+          </div>
+        </div>
+        <div class="panel settings-section">
+          <h3>Model style</h3>
+          <div class="seg-group">
+            ${["concise", "normal", "socratic", "informal"].map((st) => `<button class="seg ${chatStyle === st ? "active" : ""}" data-style="${st}">${st}</button>`).join("")}
+          </div>
+        </div>
+        <div class="panel settings-section">
+          <h3>AI personalization</h3>
+          <div class="field">
+            <label class="field-label" for="set-name">What the AI calls you</label>
+            <input class="field-input" id="set-name" type="text" value="${esc(userName)}" placeholder="admin">
+          </div>
+          <div class="field">
+            <label class="field-label" for="set-context">Project context</label>
+            <textarea class="field-input" id="set-context" rows="2" placeholder="This project runs on Google Cloud Platform (GCP).">${esc(chatContext)}</textarea>
+          </div>
+          <div class="field">
+            <label class="field-label" for="set-system">System prompt</label>
+            <textarea class="field-input" id="set-system" rows="3" placeholder="Always provide actionable remediation steps. Ask the user for more information when needed.">${esc(systemPrompt)}</textarea>
+          </div>
+        </div>
+        <div class="panel settings-section">
+          <h3>Data</h3>
+          <div class="seg-group">
+            <button class="seg" id="btn-sample">Populate sample data</button>
+            <button class="seg danger" id="btn-reset">Delete all data</button>
+          </div>
         </div>
       </div>
-      <div class="panel settings-section">
-        <h3>Model style</h3>
-        <div class="seg-group">
-          ${["concise", "normal", "socratic", "informal"].map((s) => `<button class="seg ${chatStyle === s ? "active" : ""}" data-style="${s}">${s}</button>`).join("")}
+      <div class="settings-col">
+        <div class="panel settings-section">
+          <h3>Model</h3>
+          <div class="field">
+            <label class="field-label">Current model</label>
+            <div class="model-current">${esc(settings.model || "none selected")}</div>
+          </div>
+          <div class="field">
+            <label class="field-label">Detected models</label>
+            <div class="model-list">
+              ${detected.length ? detected.map((d) => `<button class="model-opt ${settings.model === d.name ? "active" : ""}" data-model="${esc(d.name)}">${esc(d.name)} <span class="muted">(${d.size_mb} MB)</span></button>`).join("") : `<span class="muted small">No .gguf files found in ${esc(modelsDir)}</span>`}
+            </div>
+          </div>
+          <div class="field">
+            <label class="field-label">Models path</label>
+            <div class="mono small">${esc(modelsDir)}</div>
+          </div>
+          <div class="field">
+            <label class="field-label">Download compatible models</label>
+            <div class="model-list">
+              ${COMPATIBLE_MODELS.map((c) => `<div class="model-dl"><span>${esc(c.name)} <span class="muted">(${esc(c.quant)} · ${esc(c.size)})</span></span><a class="seg" href="https://huggingface.co/${esc(c.repo)}" target="_blank" rel="noopener">Download</a></div>`).join("")}
+            </div>
+          </div>
+        </div>
+        <div class="panel settings-section">
+          <h3>Connection</h3>
+          <div class="seg-group">
+            <button class="seg ${settings.provider !== "gcp" ? "active" : ""}" data-provider="simulator">Simulator</button>
+            <button class="seg ${settings.provider === "gcp" ? "active" : ""}" data-provider="gcp">GCP API</button>
+          </div>
+          <div class="field">
+            <label class="field-label" for="set-endpoint">Endpoint</label>
+            <input class="field-input" id="set-endpoint" type="text" value="${esc(settings.endpoint)}" placeholder="http://127.0.0.1:8080">
+          </div>
+          <div class="field">
+            <label class="field-label" for="set-project">Project ID</label>
+            <input class="field-input" id="set-project" type="text" value="${esc(settings.project_id)}" placeholder="demo-project">
+          </div>
+        </div>
+        <div class="panel settings-section">
+          <h3>Database</h3>
+          <div class="seg-group">
+            <button class="seg ${settings.mongo_uri ? "active" : ""}" data-mongo="on">MongoDB</button>
+            <button class="seg ${!settings.mongo_uri ? "active" : ""}" data-mongo="off">In-memory</button>
+          </div>
+          <div class="field">
+            <label class="field-label" for="set-mongo">Mongo URI</label>
+            <input class="field-input" id="set-mongo" type="text" value="${esc(settings.mongo_uri)}" placeholder="mongodb://mongo:27017">
+          </div>
+        </div>
+        <div class="panel settings-section">
+          <h3>Status</h3>
+          <div class="settings-list">
+            ${settingRow("LLM server", settings.llm_live ? "connected" : "offline")}
+            ${settingRow("MongoDB", settings.mongo_uri ? "configured" : "not configured")}
+            ${settingRow("Version", cfg ? cfg.version : "0.1.0")}
+            ${settingRow("License", "Apache 2.0")}
+          </div>
         </div>
       </div>
-      <div class="panel settings-section">
-        <h3>AI personalization</h3>
-        <div class="field">
-          <label class="field-label" for="set-name">What the AI calls you</label>
-          <input class="field-input" id="set-name" type="text" value="${esc(userName)}" placeholder="admin">
-        </div>
-        <div class="field">
-          <label class="field-label" for="set-context">Project context</label>
-          <textarea class="field-input" id="set-context" rows="2" placeholder="This project runs on Google Cloud Platform (GCP).">${esc(chatContext)}</textarea>
-        </div>
-        <div class="field">
-          <label class="field-label" for="set-system">System prompt</label>
-          <textarea class="field-input" id="set-system" rows="3" placeholder="Always provide actionable remediation steps. Ask the user for more information when needed.">${esc(systemPrompt)}</textarea>
-        </div>
-      </div>
-      <div class="panel settings-section">
-        <h3>Data</h3>
-        <div class="seg-group">
-          <button class="seg" id="btn-sample">Populate sample data</button>
-          <button class="seg danger" id="btn-reset">Delete all data</button>
-        </div>
-      </div>
-      <div class="panel settings-section">
-        <h3>Project</h3>
-        <div class="settings-list">
-          ${settingRow("Project ID", cfg ? cfg.project_id : "—")}
-          ${settingRow("Scanner endpoint", cfg ? cfg.endpoint : "—")}
-          ${settingRow("LLM status", cfg && cfg.llm_live ? "Connected" : "Disconnected (mock)")}
-          ${settingRow("Version", cfg ? cfg.version : "—")}
-          ${settingRow("License", "Apache 2.0")}
-        </div>
-      </div>
+    </div>
+    <div class="settings-actions">
+      <button class="scan-btn" id="btn-save">Save</button>
+      <button class="seg danger" id="btn-defaults">Reset to defaults</button>
+      <span class="muted small" id="save-note">Changes apply after restart.</span>
     </div>`;
 
   el.querySelectorAll("[data-theme]").forEach((b) => b.addEventListener("click", () => {
@@ -660,12 +728,40 @@ async function renderSettings() {
   el.querySelector("#btn-sample").addEventListener("click", async () => {
     await json("/seed", { method: "POST" });
     summaryCache = null;
-    switchTab("overview");
   });
   el.querySelector("#btn-reset").addEventListener("click", async () => {
     await json("/reset", { method: "POST" });
     summaryCache = null;
-    switchTab("overview");
+  });
+  el.querySelectorAll("[data-model]").forEach((b) => b.addEventListener("click", () => {
+    el.querySelectorAll("[data-model]").forEach((x) => x.classList.toggle("active", x === b));
+    el.querySelector("#save-note").textContent = "Model selected. Save + restart to apply.";
+  }));
+  el.querySelectorAll("[data-provider]").forEach((b) => b.addEventListener("click", () => {
+    el.querySelectorAll("[data-provider]").forEach((x) => x.classList.toggle("active", x === b));
+  }));
+  el.querySelectorAll("[data-mongo]").forEach((b) => b.addEventListener("click", () => {
+    el.querySelectorAll("[data-mongo]").forEach((x) => x.classList.toggle("active", x === b));
+  }));
+  el.querySelector("#btn-save").addEventListener("click", async () => {
+    const model = el.querySelector("[data-model].active")?.dataset.model || settings.model;
+    const provider = el.querySelector("[data-provider].active")?.dataset.provider || "simulator";
+    const mongoOn = el.querySelector("[data-mongo].active")?.dataset.mongo === "on";
+    await json("/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model, provider,
+        endpoint: el.querySelector("#set-endpoint").value.trim(),
+        project_id: el.querySelector("#set-project").value.trim(),
+        mongo_uri: mongoOn ? el.querySelector("#set-mongo").value.trim() : "",
+      }),
+    });
+    el.querySelector("#save-note").textContent = "Saved. Restart RADON to apply.";
+  });
+  el.querySelector("#btn-defaults").addEventListener("click", async () => {
+    await json("/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: "", provider: "simulator", endpoint: "", project_id: "", llm_endpoint: "", mongo_uri: "" }) });
+    renderSettings();
   });
 }
 
