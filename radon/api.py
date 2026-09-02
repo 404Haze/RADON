@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from contextlib import asynccontextmanager
 import os
 import queue
 import random
@@ -18,7 +19,9 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from radon.chat import Chat, LlmChat, MockChat, get_chat
+from radon.components import ComponentManager
 from radon.config import Config, runtime_config, save_runtime_config
+from radon.downloads import DownloadManager, compatible_payload, delete_model
 from radon.models.finding import Finding, Severity
 from radon.providers import get_provider
 from radon.providers.base import GcpProvider
@@ -159,9 +162,19 @@ def create_app(
     provider: GcpProvider | None = None,
     triage: Triage | None = None,
     chat: Chat | None = None,
+    autostart: bool = False,
 ) -> FastAPI:
     """Build the app, with dependencies injectable for tests."""
-    app = FastAPI(title="R.A.D.O.N.", version="0.1.0")
+    comp = ComponentManager()
+    dl = DownloadManager()
+
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI):
+        if autostart:
+            comp.auto_start()
+        yield
+
+    app = FastAPI(title="R.A.D.O.N.", version="0.1.0", lifespan=lifespan)
     store = storage or get_storage()
     tri = triage or MockTriage()  # finding descriptions stay fast; the live LLM is reserved for chat/narrative
     ch = chat or get_chat()
@@ -265,7 +278,7 @@ def create_app(
         if _MODELS_DIR.exists():
             for p in sorted(_MODELS_DIR.glob("*.gguf")):
                 files.append({"name": p.name, "size_mb": round(p.stat().st_size / 1e6, 1)})
-        return {"models": files, "models_dir": str(_MODELS_DIR)}
+        return {"models": files, "models_dir": str(_MODELS_DIR), "compatible": compatible_payload()}
 
     @app.post("/seed")
     def seed() -> dict:
@@ -314,8 +327,66 @@ def create_app(
 
         return StreamingResponse(gen(), media_type="text/event-stream")
 
+    @app.get("/components")
+    def components() -> dict:
+        mongo = comp.mongo_status()
+        llama = comp.llama_status()
+        return {"components": [
+            {"name": "radon", "label": "RADON", "status": "up", "detail": "running", "controllable": False},
+            {"name": "mongo", "label": "MongoDB", "status": mongo,
+             "detail": "connected" if mongo == "up" else "stopped", "controllable": True},
+            {"name": "llama", "label": "LLM server", "status": llama,
+             "detail": "ready" if llama == "up" else ("loading model" if llama == "starting" else "offline"),
+             "controllable": True},
+        ]}
+
+    @app.post("/components/{name}/{action}")
+    def component_action(name: str, action: str) -> dict:
+        if name == "llama":
+            if action == "start":
+                return comp.start_llama()
+            if action == "stop":
+                return comp.stop_llama()
+            if action == "restart":
+                comp.stop_llama()
+                return comp.start_llama()
+        elif name == "mongo":
+            if action == "start":
+                return comp.start_mongo()
+            if action == "stop":
+                return comp.stop_mongo()
+            if action == "restart":
+                return comp.restart_mongo()
+        raise HTTPException(status_code=404, detail="unknown component or action")
+
+    @app.post("/models/download")
+    def start_download(req: dict) -> dict:
+        job = dl.start((req or {}).get("name", ""))
+        if job is None:
+            raise HTTPException(status_code=404, detail="unknown model")
+        return job.to_dict()
+
+    @app.get("/models/download/{job_id}")
+    def download_status(job_id: str) -> dict:
+        job = dl.get(job_id)
+        if job is None:
+            raise HTTPException(status_code=404, detail="unknown job")
+        return job.to_dict()
+
+    @app.post("/models/download/{job_id}/cancel")
+    def cancel_download(job_id: str) -> dict:
+        job = dl.get(job_id)
+        if job is None:
+            raise HTTPException(status_code=404, detail="unknown job")
+        job.cancel()
+        return {"status": "cancelling"}
+
+    @app.delete("/models/{filename}")
+    def remove_model(filename: str) -> dict:
+        return delete_model(filename)
+
     app.mount("/", StaticFiles(directory=_DASHBOARD, html=True), name="dashboard")
     return app
 
 
-app = create_app()
+app = create_app(autostart=True)
