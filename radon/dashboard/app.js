@@ -590,21 +590,21 @@ function showScanResult(score) {
 }
 
 // ---------- settings ----------
-const COMPATIBLE_MODELS = [
-  { name: "LFM-2.5-1.2B", repo: "unsloth/LFM2.5-1.2B-Instruct-UD", size: "0.8 GB", quant: "Q5_K_XL" },
-  { name: "LFM2.5-8B-A1B", repo: "unsloth/LFM2.5-8B-A1B", size: "~5.5 GB", quant: "Q5" },
-  { name: "Gemma 4 26B-A4B", repo: "unsloth/gemma-4-26B-A4B", size: "~14 GB", quant: "Q4" },
-];
+let componentPoll = null;
+let activeDl = {};      // model name -> {id, percent, status}
+let compatCache = [];
 
 async function renderSettings() {
   const el = $("#tab-settings");
-  let cfg = null, s = null, m = null;
-  try { cfg = await json("/config"); } catch {}
+  let s = null, m = null;
   try { s = await json("/settings"); } catch {}
   try { m = await json("/models"); } catch {}
   const settings = s || {};
   const detected = (m && m.models) || [];
+  compatCache = (m && m.compatible) || [];
   const modelsDir = settings.models_dir || "";
+  const sim = (settings.provider || "simulator") !== "gcp";
+  const mongoOn = !!settings.mongo_uri;
 
   el.innerHTML = `
     <h2 class="tab-title">Settings</h2>
@@ -639,11 +639,9 @@ async function renderSettings() {
           </div>
         </div>
         <div class="panel settings-section">
-          <h3>Data</h3>
-          <div class="seg-group">
-            <button class="seg" id="btn-sample">Populate sample data</button>
-            <button class="seg danger" id="btn-reset">Delete all data</button>
-          </div>
+          <h3>Components</h3>
+          <div id="components-panel"><span class="muted small">Loading...</span></div>
+          <div class="status-hint" id="save-note">Changes apply after restart.</div>
         </div>
       </div>
       <div class="settings-col">
@@ -665,109 +663,242 @@ async function renderSettings() {
           </div>
           <div class="field">
             <label class="field-label">Download compatible models</label>
-            <div class="model-list">
-              ${COMPATIBLE_MODELS.map((c) => `<div class="model-dl"><span>${esc(c.name)} <span class="muted">(${esc(c.quant)} · ${esc(c.size)})</span></span><a class="seg" href="https://huggingface.co/${esc(c.repo)}" target="_blank" rel="noopener">Download</a></div>`).join("")}
-            </div>
+            <div class="model-list" id="compatible-list"></div>
           </div>
         </div>
         <div class="panel settings-section">
           <h3>Connection</h3>
           <div class="seg-group">
-            <button class="seg ${settings.provider !== "gcp" ? "active" : ""}" data-provider="simulator">Simulator</button>
-            <button class="seg ${settings.provider === "gcp" ? "active" : ""}" data-provider="gcp">GCP API</button>
+            <button class="seg ${sim ? "active" : ""}" data-provider="simulator">Simulator</button>
+            <button class="seg ${!sim ? "active" : ""}" data-provider="gcp">GCP API</button>
           </div>
           <div class="field">
             <label class="field-label" for="set-endpoint">Endpoint</label>
-            <input class="field-input" id="set-endpoint" type="text" value="${esc(settings.endpoint)}" placeholder="http://127.0.0.1:8080">
+            <input class="field-input" id="set-endpoint" type="text" value="${esc(settings.endpoint)}" placeholder="http://127.0.0.1:8080" ${sim ? "disabled" : ""}>
           </div>
           <div class="field">
             <label class="field-label" for="set-project">Project ID</label>
-            <input class="field-input" id="set-project" type="text" value="${esc(settings.project_id)}" placeholder="demo-project">
+            <input class="field-input" id="set-project" type="text" value="${esc(settings.project_id)}" placeholder="demo-project" ${sim ? "disabled" : ""}>
           </div>
         </div>
         <div class="panel settings-section">
           <h3>Database</h3>
           <div class="seg-group">
-            <button class="seg ${settings.mongo_uri ? "active" : ""}" data-mongo="on">MongoDB</button>
-            <button class="seg ${!settings.mongo_uri ? "active" : ""}" data-mongo="off">In-memory</button>
+            <button class="seg ${!mongoOn ? "active" : ""}" data-mongo="off">In-memory</button>
+            <button class="seg ${mongoOn ? "active" : ""}" data-mongo="on">MongoDB</button>
           </div>
           <div class="field">
             <label class="field-label" for="set-mongo">Mongo URI</label>
-            <input class="field-input" id="set-mongo" type="text" value="${esc(settings.mongo_uri)}" placeholder="mongodb://mongo:27017">
+            <input class="field-input" id="set-mongo" type="text" value="${esc(settings.mongo_uri)}" placeholder="mongodb://mongo:27017" ${!mongoOn ? "disabled" : ""}>
           </div>
-        </div>
-        <div class="panel settings-section">
-          <h3>Status</h3>
-          <div class="settings-list">
-            ${settingRow("LLM server", settings.llm_live ? "connected" : "offline")}
-            ${settingRow("MongoDB", settings.mongo_uri ? "configured" : "not configured")}
-            ${settingRow("Version", cfg ? cfg.version : "0.1.0")}
-            ${settingRow("License", "Apache 2.0")}
+          <div class="seg-group">
+            <button class="seg" id="btn-sample">Populate sample data</button>
+            <button class="seg danger" id="btn-reset">Delete all data</button>
           </div>
         </div>
       </div>
     </div>
     <div class="settings-actions">
       <button class="scan-btn" id="btn-save">Save</button>
-      <button class="seg danger" id="btn-defaults">Reset to defaults</button>
-      <span class="muted small" id="save-note">Changes apply after restart.</span>
+      <button class="scan-btn secondary" id="btn-defaults">Reset to defaults</button>
     </div>`;
 
-  el.querySelectorAll("[data-theme]").forEach((b) => b.addEventListener("click", () => {
-    setTheme(b.dataset.theme);
-    renderSettings();
-  }));
-  el.querySelectorAll("[data-style]").forEach((b) => b.addEventListener("click", () => {
-    chatStyle = b.dataset.style;
-    localStorage.setItem("radon-chat-style", chatStyle);
-    renderSettings();
-  }));
+  renderModelRows();
+  renderComponents();
+
+  el.querySelectorAll("[data-theme]").forEach((b) => b.addEventListener("click", () => { setTheme(b.dataset.theme); renderSettings(); }));
+  el.querySelectorAll("[data-style]").forEach((b) => b.addEventListener("click", () => { chatStyle = b.dataset.style; localStorage.setItem("radon-chat-style", chatStyle); renderSettings(); }));
   el.querySelector("#set-name").addEventListener("input", (e) => { userName = e.target.value.trim(); localStorage.setItem("radon-user-name", userName); });
   el.querySelector("#set-context").addEventListener("input", (e) => { chatContext = e.target.value; localStorage.setItem("radon-context", chatContext); });
   el.querySelector("#set-system").addEventListener("input", (e) => { systemPrompt = e.target.value; localStorage.setItem("radon-system-prompt", systemPrompt); });
-  el.querySelector("#btn-sample").addEventListener("click", async () => {
-    await json("/seed", { method: "POST" });
-    summaryCache = null;
-  });
-  el.querySelector("#btn-reset").addEventListener("click", async () => {
-    await json("/reset", { method: "POST" });
-    summaryCache = null;
-  });
+  el.querySelector("#btn-sample").addEventListener("click", async () => { await json("/seed", { method: "POST" }); summaryCache = null; });
+  el.querySelector("#btn-reset").addEventListener("click", async () => { await json("/reset", { method: "POST" }); summaryCache = null; });
+
   el.querySelectorAll("[data-model]").forEach((b) => b.addEventListener("click", () => {
     el.querySelectorAll("[data-model]").forEach((x) => x.classList.toggle("active", x === b));
-    el.querySelector("#save-note").textContent = "Model selected. Save + restart to apply.";
+    $("#save-note").textContent = "Model selected. Save + restart to apply.";
   }));
   el.querySelectorAll("[data-provider]").forEach((b) => b.addEventListener("click", () => {
     el.querySelectorAll("[data-provider]").forEach((x) => x.classList.toggle("active", x === b));
+    const s2 = b.dataset.provider === "simulator";
+    $("#set-endpoint").disabled = s2;
+    $("#set-project").disabled = s2;
   }));
   el.querySelectorAll("[data-mongo]").forEach((b) => b.addEventListener("click", () => {
     el.querySelectorAll("[data-mongo]").forEach((x) => x.classList.toggle("active", x === b));
+    $("#set-mongo").disabled = b.dataset.mongo === "off";
   }));
+
+  $("#components-panel").addEventListener("click", async (e) => {
+    const btn = e.target.closest("[data-action]");
+    if (!btn) return;
+    await json(`/components/${btn.dataset.comp}/${btn.dataset.action}`, { method: "POST" }).catch(() => {});
+    renderComponents();
+  });
+
   el.querySelector("#btn-save").addEventListener("click", async () => {
     const model = el.querySelector("[data-model].active")?.dataset.model || settings.model;
-    const provider = el.querySelector("[data-provider].active")?.dataset.provider || "simulator";
-    const mongoOn = el.querySelector("[data-mongo].active")?.dataset.mongo === "on";
+    const provider2 = el.querySelector("[data-provider].active")?.dataset.provider || "simulator";
+    const mongoOn2 = el.querySelector("[data-mongo].active")?.dataset.mongo === "on";
     await json("/settings", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model, provider,
+        model, provider: provider2,
         endpoint: el.querySelector("#set-endpoint").value.trim(),
         project_id: el.querySelector("#set-project").value.trim(),
-        mongo_uri: mongoOn ? el.querySelector("#set-mongo").value.trim() : "",
+        mongo_uri: mongoOn2 ? el.querySelector("#set-mongo").value.trim() : "",
       }),
     });
-    el.querySelector("#save-note").textContent = "Saved. Restart RADON to apply.";
+    $("#save-note").textContent = "Saved. Restart RADON to apply.";
   });
+
   el.querySelector("#btn-defaults").addEventListener("click", async () => {
     await json("/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: "", provider: "simulator", endpoint: "", project_id: "", llm_endpoint: "", mongo_uri: "" }) });
     renderSettings();
   });
+
+  if (componentPoll) clearInterval(componentPoll);
+  componentPoll = setInterval(() => {
+    if ($("#tab-settings") && $("#tab-settings").hidden) return;
+    renderComponents();
+  }, 2000);
 }
 
-function settingRow(label, value) {
-  return `<div class="setting-row"><span class="setting-label">${esc(label)}</span><span class="setting-value">${esc(value)}</span></div>`;
+function renderModelRows() {
+  const list = $("#compatible-list");
+  if (!list) return;
+  list.innerHTML = compatCache.map((c) => {
+    const job = activeDl[c.name];
+    if (job && job.status === "downloading") {
+      return `<div class="model-dl" data-name="${esc(c.name)}">
+        <span>${esc(c.name)} <span class="muted">(${esc(c.quant)} · ${esc(c.size)})</span></span>
+        <span class="model-dl-right">
+          <span class="dl-progress"><span class="dl-fill" style="width:${job.percent}%"></span></span>
+          <button class="model-btn downloading" data-name="${esc(c.name)}" data-action="cancel"><span class="lbl-dl">Downloading</span><span class="lbl-del">Cancel</span></button>
+        </span>
+      </div>`;
+    }
+    if (c.downloaded) {
+      return `<div class="model-dl" data-name="${esc(c.name)}">
+        <span>${esc(c.name)} <span class="muted">(${esc(c.quant)} · ${esc(c.size)})</span></span>
+        <button class="model-btn downloaded" data-name="${esc(c.name)}" data-action="delete" data-file="${esc(c.file)}"><span class="lbl-dl">Downloaded</span><span class="lbl-del">Delete</span></button>
+      </div>`;
+    }
+    return `<div class="model-dl" data-name="${esc(c.name)}">
+      <span>${esc(c.name)} <span class="muted">(${esc(c.quant)} · ${esc(c.size)})</span></span>
+      <button class="model-btn" data-name="${esc(c.name)}" data-action="download">Download</button>
+    </div>`;
+  }).join("");
+
+  list.onclick = async (e) => {
+    const btn = e.target.closest("[data-action]");
+    if (!btn) return;
+    const name = btn.dataset.name;
+    if (btn.dataset.action === "download") openDownloadModal(name);
+    else if (btn.dataset.action === "delete") deleteModel(btn.dataset.file);
+    else if (btn.dataset.action === "cancel") cancelDownload(name);
+  };
 }
+
+async function renderComponents() {
+  const panel = $("#components-panel");
+  if (!panel) return;
+  let c = null;
+  try { c = await json("/components"); } catch {}
+  const comps = (c && c.components) || [];
+  panel.innerHTML = comps.map((co) => {
+    const actions = co.controllable ? `<span class="comp-actions">
+      ${co.status !== "up" ? `<button class="comp-btn start" data-comp="${co.name}" data-action="start">Start</button>` : `<button class="comp-btn stop" data-comp="${co.name}" data-action="stop">Stop</button>`}
+      <button class="comp-btn" data-comp="${co.name}" data-action="restart">Restart</button>
+    </span>` : "";
+    return `<div class="comp-row">
+      <span class="comp-dot ${esc(co.status)}"></span>
+      <span class="comp-label">${esc(co.label)}</span>
+      <span class="comp-detail">${esc(co.detail)}</span>
+      ${actions}
+    </div>`;
+  }).join("");
+}
+
+function openDownloadModal(name) {
+  const c = compatCache.find((x) => x.name === name);
+  if (!c) return;
+  removeModal();
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `
+    <div class="modal">
+      <div class="modal-title">Download ${esc(c.name)}</div>
+      <div class="modal-sub">How would you like to download this model?</div>
+      <div class="modal-actions">
+        <button class="scan-btn" id="dl-fetch">Download from HuggingFace</button>
+        <button class="seg" id="dl-copy">Copy link</button>
+        <button class="seg" id="dl-cancel">Cancel</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) removeModal(); });
+  overlay.querySelector("#dl-copy").addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(c.url); } catch {}
+    removeModal();
+  });
+  overlay.querySelector("#dl-cancel").addEventListener("click", removeModal);
+  overlay.querySelector("#dl-fetch").addEventListener("click", () => { removeModal(); startDownload(c.name); });
+}
+
+function removeModal() {
+  const o = $(".modal-overlay");
+  if (o) o.remove();
+}
+
+async function startDownload(name) {
+  try {
+    const job = await json("/models/download", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
+    activeDl[name] = { id: job.id, percent: 0, status: "downloading" };
+    renderModelRows();
+    pollDownload(name);
+  } catch {}
+}
+
+function pollDownload(name) {
+  const t = setInterval(async () => {
+    const job = activeDl[name];
+    if (!job) { clearInterval(t); return; }
+    try {
+      const j = await json(`/models/download/${job.id}`);
+      job.percent = j.percent || 0;
+      job.status = j.status;
+      if (j.status === "done" || j.status === "cancelled" || j.status === "error") {
+        clearInterval(t);
+        delete activeDl[name];
+        await refreshModels();
+      } else {
+        const fill = $(`#compatible-list [data-name="${name}"] .dl-fill`);
+        if (fill) fill.style.width = (j.percent || 0) + "%";
+      }
+    } catch {}
+  }, 1000);
+}
+
+async function cancelDownload(name) {
+  const job = activeDl[name];
+  if (!job) return;
+  await json(`/models/download/${job.id}/cancel`, { method: "POST" }).catch(() => {});
+}
+
+async function deleteModel(file) {
+  await json(`/models/${encodeURIComponent(file)}`, { method: "DELETE" }).catch(() => {});
+  await refreshModels();
+}
+
+async function refreshModels() {
+  let m = null;
+  try { m = await json("/models"); } catch {}
+  compatCache = (m && m.compatible) || [];
+  renderModelRows();
+}
+
 
 // boot
 switchTab("overview");
