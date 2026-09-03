@@ -346,7 +346,7 @@ async function sendChatText(text) {
     appendChat("assistant", reply.reply);
   } catch {
     thinking.remove();
-    appendChat("assistant", "Something went wrong — try again.");
+    appendChat("assistant", "Something went wrong. Try again.");
   } finally {
     setChatBusy(false);
   }

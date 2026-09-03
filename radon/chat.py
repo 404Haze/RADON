@@ -32,12 +32,12 @@ class LlmChat(Chat):
     """Chats with a llama.cpp server over its OpenAI-compatible API."""
 
     def __init__(self, endpoint: str = "http://localhost:8080", client: httpx.Client | None = None):
-        self._client = client or httpx.Client(base_url=endpoint.rstrip("/"), timeout=120)
+        self._client = client or httpx.Client(base_url=endpoint.rstrip("/"), timeout=300)
 
     def respond(self, messages: list[dict[str, str]]) -> str:
         resp = self._client.post(
             "/v1/chat/completions",
-            json={"model": "local", "messages": messages, "temperature": 0.4},
+            json={"model": "local", "messages": messages, "temperature": 0.4, "max_tokens": 128},
         )
         resp.raise_for_status()
         return resp.json()["choices"][0]["message"]["content"]
