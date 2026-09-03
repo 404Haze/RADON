@@ -44,7 +44,7 @@ class ChatRequest(BaseModel):
     system_prompt: str = ""
 
 
-_CHAT_BASE = "You are R.A.D.O.N.'s remediation assistant for a GCP cloud security posture scanner. Help the user understand and fix security findings."
+_CHAT_BASE = "You are R.A.D.O.N.'s remediation assistant for a GCP cloud security posture scanner. Help the user understand and fix security findings. Prefer guiding the user with gcloud terminal commands rather than the web console UI, unless the user asks otherwise."
 
 _CHAT_STYLES = {
     "concise": "Keep responses short and to the point.",
