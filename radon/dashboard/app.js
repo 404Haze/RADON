@@ -591,7 +591,6 @@ function showScanResult(score) {
 
 // ---------- settings ----------
 let componentPoll = null;
-let activeDl = {};      // model name -> {id, percent, status}
 let compatCache = [];
 
 async function renderSettings() {
@@ -769,16 +768,6 @@ function renderModelRows() {
   const list = $("#compatible-list");
   if (!list) return;
   list.innerHTML = compatCache.map((c) => {
-    const job = activeDl[c.name];
-    if (job && job.status === "downloading") {
-      return `<div class="model-dl" data-name="${esc(c.name)}">
-        <span>${esc(c.name)} <span class="muted">(${esc(c.quant)} · ${esc(c.size)})</span></span>
-        <span class="model-dl-right">
-          <span class="dl-progress"><span class="dl-fill" style="width:${job.percent}%"></span></span>
-          <button class="model-btn downloading" data-name="${esc(c.name)}" data-action="cancel"><span class="lbl-dl">Downloading</span><span class="lbl-del">Cancel</span></button>
-        </span>
-      </div>`;
-    }
     if (c.downloaded) {
       return `<div class="model-dl" data-name="${esc(c.name)}">
         <span>${esc(c.name)} <span class="muted">(${esc(c.quant)} · ${esc(c.size)})</span></span>
@@ -787,17 +776,15 @@ function renderModelRows() {
     }
     return `<div class="model-dl" data-name="${esc(c.name)}">
       <span>${esc(c.name)} <span class="muted">(${esc(c.quant)} · ${esc(c.size)})</span></span>
-      <button class="model-btn" data-name="${esc(c.name)}" data-action="download">Download</button>
+      <button class="model-btn" data-name="${esc(c.name)}" data-action="copy">Download</button>
     </div>`;
   }).join("");
 
   list.onclick = async (e) => {
     const btn = e.target.closest("[data-action]");
     if (!btn) return;
-    const name = btn.dataset.name;
-    if (btn.dataset.action === "download") openDownloadModal(name);
-    else if (btn.dataset.action === "delete") deleteModel(btn.dataset.file);
-    else if (btn.dataset.action === "cancel") cancelDownload(name);
+    if (btn.dataset.action === "delete") deleteModel(btn.dataset.file);
+    else if (btn.dataset.action === "copy") copyLink(btn.dataset.name);
   };
 }
 
@@ -821,70 +808,21 @@ async function renderComponents() {
   }).join("");
 }
 
-function openDownloadModal(name) {
+function copyLink(name) {
   const c = compatCache.find((x) => x.name === name);
   if (!c) return;
-  removeModal();
-  const overlay = document.createElement("div");
-  overlay.className = "modal-overlay";
-  overlay.innerHTML = `
-    <div class="modal">
-      <div class="modal-title">Download ${esc(c.name)}</div>
-      <div class="modal-sub">How would you like to download this model?</div>
-      <div class="modal-actions">
-        <button class="scan-btn" id="dl-fetch">Download from HuggingFace</button>
-        <button class="seg" id="dl-copy">Copy link</button>
-        <button class="seg" id="dl-cancel">Cancel</button>
-      </div>
-    </div>`;
-  document.body.appendChild(overlay);
-  overlay.addEventListener("click", (e) => { if (e.target === overlay) removeModal(); });
-  overlay.querySelector("#dl-copy").addEventListener("click", async () => {
-    try { await navigator.clipboard.writeText(c.url); } catch {}
-    removeModal();
-  });
-  overlay.querySelector("#dl-cancel").addEventListener("click", removeModal);
-  overlay.querySelector("#dl-fetch").addEventListener("click", () => { removeModal(); startDownload(c.name); });
+  navigator.clipboard.writeText(c.link).catch(() => {});
+  showToast("Link copied to clipboard");
 }
 
-function removeModal() {
-  const o = $(".modal-overlay");
-  if (o) o.remove();
-}
-
-async function startDownload(name) {
-  try {
-    const job = await json("/models/download", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
-    activeDl[name] = { id: job.id, percent: 0, status: "downloading" };
-    renderModelRows();
-    pollDownload(name);
-  } catch {}
-}
-
-function pollDownload(name) {
-  const t = setInterval(async () => {
-    const job = activeDl[name];
-    if (!job) { clearInterval(t); return; }
-    try {
-      const j = await json(`/models/download/${job.id}`);
-      job.percent = j.percent || 0;
-      job.status = j.status;
-      if (j.status === "done" || j.status === "cancelled" || j.status === "error") {
-        clearInterval(t);
-        delete activeDl[name];
-        await refreshModels();
-      } else {
-        const fill = $(`#compatible-list [data-name="${name}"] .dl-fill`);
-        if (fill) fill.style.width = (j.percent || 0) + "%";
-      }
-    } catch {}
-  }, 1000);
-}
-
-async function cancelDownload(name) {
-  const job = activeDl[name];
-  if (!job) return;
-  await json(`/models/download/${job.id}/cancel`, { method: "POST" }).catch(() => {});
+function showToast(msg) {
+  document.querySelectorAll(".toast").forEach((x) => x.remove());
+  const t = document.createElement("div");
+  t.className = "toast";
+  t.textContent = msg;
+  document.body.appendChild(t);
+  requestAnimationFrame(() => t.classList.add("show"));
+  setTimeout(() => { t.classList.remove("show"); setTimeout(() => t.remove(), 250); }, 1800);
 }
 
 async function deleteModel(file) {
