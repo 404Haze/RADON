@@ -179,6 +179,13 @@ async function renderFindings() {
         const n = s === "all" ? cachedReports.length : cachedReports.filter((r) => r.finding.severity === s).length;
         return `<button class="filter-chip ${s === severityFilter ? "active" : ""}" data-sev="${s}">${s}<span class="chip-count">${n}</span></button>`;
       }).join("")}
+      <div class="export-menu">
+        <button class="filter-chip" id="btn-export">Export</button>
+        <div class="export-popup">
+          <button data-fmt="json">JSON</button>
+          <button data-fmt="csv">CSV</button>
+        </div>
+      </div>
     </div>
     <div class="service-groups"></div>`;
 
@@ -186,7 +193,24 @@ async function renderFindings() {
     severityFilter = b.dataset.sev;
     renderFindings();
   }));
+  const expMenu = el.querySelector(".export-menu");
+  el.querySelector("#btn-export").addEventListener("click", (e) => {
+    e.stopPropagation();
+    expMenu.classList.toggle("open");
+  });
+  expMenu.querySelectorAll("[data-fmt]").forEach((b) => b.addEventListener("click", () => {
+    exportFindings(b.dataset.fmt);
+    expMenu.classList.remove("open");
+  }));
   renderServiceGroups(el.querySelector(".service-groups"));
+}
+
+function exportFindings(fmt) {
+  const a = document.createElement("a");
+  a.href = `/export/findings?fmt=${fmt}`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
 }
 
 function renderServiceGroups(container) {

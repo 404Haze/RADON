@@ -37,7 +37,7 @@ class LlmChat(Chat):
     def respond(self, messages: list[dict[str, str]]) -> str:
         resp = self._client.post(
             "/v1/chat/completions",
-            json={"model": "local", "messages": messages, "temperature": 0.4, "max_tokens": 128},
+            json={"model": "local", "messages": messages, "temperature": 0.4, "max_tokens": 1000},
         )
         resp.raise_for_status()
         return resp.json()["choices"][0]["message"]["content"]

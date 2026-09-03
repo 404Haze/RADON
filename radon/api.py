@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import csv
+import io
 import json
 from contextlib import asynccontextmanager
 import os
@@ -13,7 +15,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -361,6 +363,21 @@ def create_app(
     @app.delete("/models/{filename}")
     def remove_model(filename: str) -> dict:
         return delete_model(filename)
+
+    @app.get("/export/findings")
+    def export_findings(fmt: str = "json") -> Response:
+        findings = [r.finding for r in store.latest_reports()]
+        if fmt == "csv":
+            buf = io.StringIO()
+            w = csv.writer(buf)
+            w.writerow(["id", "rule", "severity", "service", "resource", "detail"])
+            for f in findings:
+                w.writerow([f.id, f.rule, f.severity.value, f.service, f.resource, f.detail])
+            return Response(buf.getvalue(), media_type="text/csv",
+                            headers={"Content-Disposition": 'attachment; filename="radon-findings.csv"'})
+        data = json.dumps([f.model_dump(mode="json") for f in findings], indent=2)
+        return Response(data, media_type="application/json",
+                        headers={"Content-Disposition": 'attachment; filename="radon-findings.json"'})
 
     app.mount("/", StaticFiles(directory=_DASHBOARD, html=True), name="dashboard")
     return app
