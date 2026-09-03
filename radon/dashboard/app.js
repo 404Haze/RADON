@@ -714,6 +714,7 @@ async function renderSettings() {
   el.querySelector("#btn-reset").addEventListener("click", async () => { await json("/reset", { method: "POST" }); summaryCache = null; });
 
   el.querySelectorAll("[data-model]").forEach((b) => b.addEventListener("click", () => {
+    if (b.classList.contains("active")) return;
     el.querySelectorAll("[data-model]").forEach((x) => x.classList.toggle("active", x === b));
     $("#save-note").textContent = "Model selected. Save + restart to apply.";
   }));
@@ -731,7 +732,15 @@ async function renderSettings() {
   $("#components-panel").addEventListener("click", async (e) => {
     const btn = e.target.closest("[data-action]");
     if (!btn) return;
-    await json(`/components/${btn.dataset.comp}/${btn.dataset.action}`, { method: "POST" }).catch(() => {});
+    const name = btn.dataset.comp, action = btn.dataset.action;
+    const row = $(`#components-panel [data-comp-row="${name}"]`);
+    if (row) {
+      const dot = row.querySelector(".comp-dot");
+      const det = row.querySelector(".comp-detail");
+      if (dot) dot.className = "comp-dot starting";
+      if (det) det.textContent = action === "stop" ? "stopping..." : action === "restart" ? "restarting..." : "starting...";
+    }
+    await json(`/components/${name}/${action}`, { method: "POST" }).catch(() => {});
     renderComponents();
   });
 
@@ -784,7 +793,7 @@ function renderModelRows() {
     const btn = e.target.closest("[data-action]");
     if (!btn) return;
     if (btn.dataset.action === "delete") deleteModel(btn.dataset.file);
-    else if (btn.dataset.action === "copy") copyLink(btn.dataset.name);
+    else if (btn.dataset.action === "copy") copyLink(btn.dataset.name, btn);
   };
 }
 
@@ -799,7 +808,7 @@ async function renderComponents() {
       ${co.status !== "up" ? `<button class="comp-btn start" data-comp="${co.name}" data-action="start">Start</button>` : `<button class="comp-btn stop" data-comp="${co.name}" data-action="stop">Stop</button>`}
       <button class="comp-btn" data-comp="${co.name}" data-action="restart">Restart</button>
     </span>` : "";
-    return `<div class="comp-row">
+    return `<div class="comp-row" data-comp-row="${esc(co.name)}">
       <span class="comp-dot ${esc(co.status)}"></span>
       <span class="comp-label">${esc(co.label)}</span>
       <span class="comp-detail">${esc(co.detail)}</span>
@@ -808,21 +817,26 @@ async function renderComponents() {
   }).join("");
 }
 
-function copyLink(name) {
+function copyLink(name, btn) {
   const c = compatCache.find((x) => x.name === name);
   if (!c) return;
   navigator.clipboard.writeText(c.link).catch(() => {});
-  showToast("Link copied to clipboard");
+  showToast("Link copied to clipboard", btn);
 }
 
-function showToast(msg) {
+function showToast(msg, anchor) {
   document.querySelectorAll(".toast").forEach((x) => x.remove());
   const t = document.createElement("div");
   t.className = "toast";
   t.textContent = msg;
   document.body.appendChild(t);
+  if (anchor) {
+    const r = anchor.getBoundingClientRect();
+    t.style.left = Math.max(8, r.left - t.offsetWidth - 10) + "px";
+    t.style.top = (r.top + r.height / 2 - t.offsetHeight / 2) + "px";
+  }
   requestAnimationFrame(() => t.classList.add("show"));
-  setTimeout(() => { t.classList.remove("show"); setTimeout(() => t.remove(), 250); }, 1800);
+  setTimeout(() => { t.classList.remove("show"); setTimeout(() => t.remove(), 250); }, 1600);
 }
 
 async function deleteModel(file) {
