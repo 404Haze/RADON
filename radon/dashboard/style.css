@@ -539,3 +539,12 @@ html[data-theme="light"] .scan-btn:not(.secondary),
 html[data-theme="light"] .chat-send,
 html[data-theme="light"] .fix-btn,
 html[data-theme="light"] .model-btn:not(.downloaded) { color: #ffffff; }
+
+
+/* ---------- consistent hover feedback ---------- */
+.seg:hover:not(.danger) { color: var(--text); border-color: var(--border-strong); }
+.scan-btn:hover:not(.secondary) { filter: brightness(1.1); }
+.chat-send:hover:not(:disabled) { filter: brightness(1.1); }
+.status-btn:hover { color: var(--text); border-color: var(--border-strong); }
+.filter-chip:hover { color: var(--text); border-color: var(--border-strong); }
+.trend-toggle:not(.active):hover { opacity: 0.75; }
