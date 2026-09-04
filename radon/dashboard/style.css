@@ -560,3 +560,5 @@ html[data-theme="light"] .model-btn:not(.downloaded) { color: #ffffff; }
 .export-popup button:hover { background: var(--border); }
 
 .seg-group + .field { margin-top: 0.9rem; }
+
+.finding-cite { font-size: 0.72rem; color: var(--muted); margin-top: 0.35rem; font-family: ui-monospace, monospace; letter-spacing: 0.02em; }

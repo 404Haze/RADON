@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from radon.classification import enrich
+
 from radon.checks.cloud_run import (
     check_binary_authorization,
     check_concurrency_limit,
@@ -190,7 +192,7 @@ def scan(provider: GcpProvider, progress: Callable[[str, str], None] | None = No
 
     _emit_rules(emit, _SERVICE_RULES["cloud_run"], findings, before)
     emit(f"Collected {len(findings)} findings.")
-    return _dedupe(findings)
+    return enrich(_dedupe(findings))
 
 
 def _dedupe(findings: list[Finding]) -> list[Finding]:

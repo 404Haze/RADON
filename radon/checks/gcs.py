@@ -50,7 +50,7 @@ def check_public_bucket_iam(bucket: dict[str, Any]) -> list[Finding]:
         Finding(
             id=f"gcs:public_bucket_iam:{name}",
             rule="public_bucket_iam",
-            severity=Severity.HIGH,
+            severity=Severity.CRITICAL,
             service="gcs",
             resource=name,
             detail=f"bucket {name} grants {', '.join(sorted(public))} via IAM policy",
@@ -68,7 +68,7 @@ def check_public_object(obj: dict[str, Any]) -> list[Finding]:
         Finding(
             id=f"gcs:public_object:{name}",
             rule="public_object",
-            severity=Severity.CRITICAL,
+            severity=Severity.HIGH,
             service="gcs",
             resource=name,
             detail=f"object {name} is readable by {', '.join(public)}",

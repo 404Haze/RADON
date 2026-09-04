@@ -242,6 +242,14 @@ function renderServiceGroups(container) {
   };
 }
 
+function cite(f) {
+  const parts = [];
+  if (f.cis) parts.push(f.cis);
+  if (f.cvss) parts.push(`CVSS ${f.cvss}`);
+  if (f.attack) parts.push(f.attack);
+  return parts.join(" \u00b7 ");
+}
+
 function findingCard(r) {
   const f = r.finding, a = r.assessment;
   return `
@@ -264,6 +272,7 @@ function findingCard(r) {
         <button class="fix-btn">Fix</button>
       </div>
       <div class="finding-detail">${esc(cap(f.detail))}</div>
+      <div class="finding-cite">${esc(cite(f))}</div>
       <div class="finding-assess">
         <div class="a-label">What's wrong</div>
         <div class="a-text">${esc(a.explanation)}</div>

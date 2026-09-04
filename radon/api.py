@@ -21,6 +21,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from radon.chat import Chat, LlmChat, MockChat, get_chat
+from radon.classification import enrich
 from radon.components import ComponentManager
 from radon.config import Config, runtime_config, save_runtime_config
 from radon.downloads import compatible_payload, delete_model
@@ -95,10 +96,10 @@ def _deterministic_summary(findings: list[Finding]) -> str:
 
 
 _SAMPLE_RULES = {
-    "critical": [("public_bucket", "gcs"), ("public_binding", "iam"), ("secret_in_env", "cloud_run"), ("orphaned_key", "iam")],
-    "high": [("unauthenticated_service", "cloud_run"), ("external_member", "iam"), ("default_service_account", "compute"), ("public_bucket_iam", "gcs")],
-    "medium": [("open_ingress", "cloud_run"), ("open_firewall", "compute"), ("no_cmek", "gcs"), ("versioning_disabled", "gcs"), ("latest_image_tag", "cloud_run")],
-    "low": [("no_timeout", "cloud_run"), ("no_concurrency_limit", "cloud_run"), ("single_region", "gcs"), ("no_resource_limits", "cloud_run")],
+    "critical": [("public_binding", "iam"), ("public_bucket_iam", "gcs"), ("secret_in_env", "cloud_run"), ("firewall_all_ports", "compute"), ("metadata_contains_secrets", "compute")],
+    "high": [("public_bucket", "gcs"), ("public_object", "gcs"), ("orphaned_key", "iam"), ("open_firewall", "compute"), ("open_ssh_rdp", "compute"), ("unauthenticated_service", "cloud_run")],
+    "medium": [("external_member", "iam"), ("default_service_account", "compute"), ("no_uniform_bucket_level_access", "gcs"), ("versioning_disabled", "gcs"), ("open_ingress", "cloud_run"), ("latest_image_tag", "cloud_run")],
+    "low": [("no_cmek", "gcs"), ("single_region", "gcs"), ("no_resource_limits", "cloud_run"), ("no_timeout", "cloud_run"), ("no_concurrency_limit", "cloud_run")],
 }
 
 
@@ -156,6 +157,7 @@ def _sample_reports(rng: random.Random, counts: dict[str, int]) -> list[Report]:
                 remediation=f"Address {rule.replace('_', ' ')} on {resource}.",
             )
             reports.append(Report(finding=finding, assessment=assessment))
+    enrich([r.finding for r in reports])
     return reports
 
 

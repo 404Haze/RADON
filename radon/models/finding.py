@@ -28,3 +28,6 @@ class Finding(BaseModel):
     service: str = Field(description="GCP service: iam, gcs, compute, cloud_run")
     resource: str = Field(description="Human-readable resource name")
     detail: str = Field(description="What the check observed")
+    cis: str | None = Field(default=None, description="CIS GCP Foundations control or NIST SP 800-53")
+    cvss: str | None = Field(default=None, description="CVSS v4.0 score")
+    attack: str | None = Field(default=None, description="MITRE ATT&CK technique ID")

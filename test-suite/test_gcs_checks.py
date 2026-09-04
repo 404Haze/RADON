@@ -71,7 +71,7 @@ def test_public_bucket_iam_fires():
 def test_public_object_fires():
     findings = check_public_object(PUBLIC_OBJECT)
     assert len(findings) == 1
-    assert findings[0].severity is Severity.CRITICAL
+    assert findings[0].severity is Severity.HIGH
 
 
 def test_private_object_does_not_fire():
