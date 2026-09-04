@@ -700,17 +700,14 @@ async function renderSettings() {
           </div>
           <div class="seg-group">
             <button class="seg" id="btn-sample">Populate sample data</button>
-            <button class="seg danger" id="btn-reset">Delete all data</button>
-          </div>
-          <div class="field">
-            <label class="field-label">Export findings</label>
             <div class="export-menu">
-              <button class="seg" id="btn-export">Export</button>
+              <button class="seg" id="btn-export">Export Data</button>
               <div class="export-popup">
                 <button data-fmt="json">JSON</button>
                 <button data-fmt="csv">CSV</button>
               </div>
             </div>
+            <button class="seg danger" id="btn-reset">Delete all data</button>
           </div>
         </div>
       </div>
