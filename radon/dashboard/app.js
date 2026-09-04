@@ -179,28 +179,12 @@ async function renderFindings() {
         const n = s === "all" ? cachedReports.length : cachedReports.filter((r) => r.finding.severity === s).length;
         return `<button class="filter-chip ${s === severityFilter ? "active" : ""}" data-sev="${s}">${s}<span class="chip-count">${n}</span></button>`;
       }).join("")}
-      <div class="export-menu">
-        <button class="filter-chip" id="btn-export">Export</button>
-        <div class="export-popup">
-          <button data-fmt="json">JSON</button>
-          <button data-fmt="csv">CSV</button>
-        </div>
-      </div>
     </div>
     <div class="service-groups"></div>`;
 
   el.querySelectorAll(".filter-chip").forEach((b) => b.addEventListener("click", () => {
     severityFilter = b.dataset.sev;
     renderFindings();
-  }));
-  const expMenu = el.querySelector(".export-menu");
-  el.querySelector("#btn-export").addEventListener("click", (e) => {
-    e.stopPropagation();
-    expMenu.classList.toggle("open");
-  });
-  expMenu.querySelectorAll("[data-fmt]").forEach((b) => b.addEventListener("click", () => {
-    exportFindings(b.dataset.fmt);
-    expMenu.classList.remove("open");
   }));
   renderServiceGroups(el.querySelector(".service-groups"));
 }
@@ -718,6 +702,16 @@ async function renderSettings() {
             <button class="seg" id="btn-sample">Populate sample data</button>
             <button class="seg danger" id="btn-reset">Delete all data</button>
           </div>
+          <div class="field">
+            <label class="field-label">Export findings</label>
+            <div class="export-menu">
+              <button class="seg" id="btn-export">Export</button>
+              <div class="export-popup">
+                <button data-fmt="json">JSON</button>
+                <button data-fmt="csv">CSV</button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -751,6 +745,15 @@ async function renderSettings() {
   el.querySelectorAll("[data-mongo]").forEach((b) => b.addEventListener("click", () => {
     el.querySelectorAll("[data-mongo]").forEach((x) => x.classList.toggle("active", x === b));
     $("#set-mongo").disabled = b.dataset.mongo === "off";
+  }));
+  const expMenu = el.querySelector(".export-menu");
+  el.querySelector("#btn-export").addEventListener("click", (e) => {
+    e.stopPropagation();
+    expMenu.classList.toggle("open");
+  });
+  expMenu.querySelectorAll("[data-fmt]").forEach((b) => b.addEventListener("click", () => {
+    exportFindings(b.dataset.fmt);
+    expMenu.classList.remove("open");
   }));
 
   $("#components-panel").addEventListener("click", async (e) => {
