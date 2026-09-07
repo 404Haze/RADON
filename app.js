@@ -495,7 +495,7 @@ function chartOptions(min, max) {
     },
     scales: {
       x: { ticks: { color: "#5b6a80" }, grid: { color: "rgba(148, 163, 184, 0.06)" } },
-      y: { min, max, ticks: { color: "#5b6a80", precision: 0 }, grid: { color: "rgba(148, 163, 184, 0.06)" } },
+      y: { min, max, beginAtZero: true, grace: "25%", ticks: { color: "#5b6a80", precision: 0 }, grid: { color: "rgba(148, 163, 184, 0.06)" } },
     },
   };
 }
