@@ -767,5 +767,24 @@ window.RADON_DEMO = {
    "info"
   ]
  ],
- "demo_reply": "This is a static demo. Run the full version locally to use the live AI assistant."
+ "demo_reply": "This is a static demo. Run the full version locally to use the live AI assistant.",
+ "banner": "Static demo · synthetic data · run the full version to scan your own project",
+ "chat_history": [
+  {
+   "role": "user",
+   "content": "what's the status of my project? anything i should be worried about?"
+  },
+  {
+   "role": "assistant",
+   "content": "Your last scan scored 48/100, and two findings need attention today.\n\n- **acme-customer-data** is publicly readable. Its IAM policy includes `allUsers`, so anyone on the internet can list and download the whole bucket without authenticating. That's your one critical, and it's a real data-exfiltration path.\n- **allow-all-ssh** opens port 22 to `0.0.0.0/0`, so every instance behind it is an open brute-force target.\n\nAfter those: the `ci-deployer` service-account key hasn't rotated in 180 days, and you're still on the default VPC. The rest is hygiene: CMEK, versioning, HTTPS-only, flow logs."
+  },
+  {
+   "role": "user",
+   "content": "ok, how do i fix the public bucket?"
+  },
+  {
+   "role": "assistant",
+   "content": "Based on your current configuration, revoke the public grant and lock the bucket down:\n\n```bash\ngcloud storage buckets remove-iam-policy-binding gs://acme-customer-data \\\n  --member=allUsers --role=roles/storage.objectViewer\n\ngcloud storage buckets update gs://acme-customer-data \\\n  --public-access-prevention=enforced\n```\n\nThe first command strips `allUsers`. The second turns on public access prevention so the bucket can't be re-exposed. Re-scan and the critical should clear. If some objects genuinely need to be shared, use signed URLs instead of making the bucket public."
+  }
+ ]
 };
