@@ -40,14 +40,14 @@
     return es;
   };
 
-  // ---- demo banner: flat overlay, centered, doesn't shift content ----
+  // ---- demo banner: fixed pill, rounded, centered, follows on scroll ----
   (function () {
     var style = document.createElement("style");
     style.textContent =
-      ".content{position:relative;}" +
-      ".demo-banner{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;" +
-      "justify-content:center;gap:8px;padding:5px 16px;border-bottom:1px solid var(--border);" +
-      "background:rgba(56,189,248,0.08);color:var(--muted);font-size:12.5px;z-index:10;}" +
+      ".demo-banner{position:fixed;top:14px;left:50%;transform:translateX(-50%);" +
+      "display:flex;align-items:center;gap:8px;padding:6px 15px;border-radius:999px;" +
+      "border:1px solid var(--border);background:rgba(18,21,29,0.88);" +
+      "color:var(--muted);font-size:12.5px;z-index:100;box-shadow:0 2px 14px rgba(0,0,0,0.4);}" +
       ".demo-banner .dot{width:7px;height:7px;border-radius:50%;" +
       "background:var(--accent);box-shadow:0 0 8px var(--accent);flex-shrink:0;}";
     document.head.appendChild(style);
@@ -61,8 +61,7 @@
     bar.appendChild(dot);
     bar.appendChild(txt);
 
-    var content = document.querySelector(".content");
-    if (content) content.insertBefore(bar, content.firstChild);
+    document.body.appendChild(bar);
   })();
 
   // ---- chat pre-fill (two exchanges) + export no-op ----
@@ -85,7 +84,6 @@
       };
     }
 
-    // Export buttons would navigate to /export/findings (404 in the demo) — stop them.
     window.exportFindings = function () {
       if (typeof showToast === "function") showToast("Export unavailable in this demo");
     };
