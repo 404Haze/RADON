@@ -768,7 +768,7 @@ window.RADON_DEMO = {
   ]
  ],
  "demo_reply": "This is a static demo. Run the full version locally to use the live AI assistant.",
- "banner": "Static demo · synthetic data · run the full version to scan your own project",
+ "banner": "This is a static demo with a simulated project.",
  "chat_history": [
   {
    "role": "user",
