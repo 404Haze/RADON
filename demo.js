@@ -13,7 +13,15 @@
     if (u === "/summary") return Promise.resolve(ok({ summary: D.summary }));
     if (u === "/score/history") return Promise.resolve(ok(D.history));
     if (u === "/reports") return Promise.resolve(ok(D.reports));
-    if (u.indexOf("/reports/status") === 0) return Promise.resolve(noop());
+    if (u.indexOf("/reports/status") === 0) {
+      var q = u.indexOf("?") >= 0 ? u.slice(u.indexOf("?") + 1) : "";
+      var p = new URLSearchParams(q);
+      var fid = p.get("finding_id");
+      var st = p.get("status");
+      var rep = D.reports.find(function (r) { return r.finding.id === fid; });
+      if (rep) rep.status = st;
+      return Promise.resolve(ok({ status: "updated" }));
+    }
     if (u === "/chat") return Promise.resolve(ok({ reply: D.demo_reply }));
     if (u === "/settings") return Promise.resolve(ok(D.settings));
     if (u === "/models") return Promise.resolve(ok(D.models));
