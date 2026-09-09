@@ -276,7 +276,7 @@ button:disabled { cursor: not-allowed; }
 .filter-chip.active { color: var(--text); border-color: var(--accent); }
 .filter-chip .chip-count { color: var(--faint); margin-left: 0.3rem; font-family: var(--font-mono); font-size: 0.72rem; }
 
-.service-groups { width: 100%; overflow-x: hidden; }
+.service-groups { width: 100%; }
 .service-group { margin-bottom: 1rem; width: 100%; }
 .service-head {
   display: flex;
