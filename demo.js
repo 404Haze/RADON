@@ -44,8 +44,8 @@
   (function () {
     var style = document.createElement("style");
     style.textContent =
-      ".demo-banner{position:fixed;top:0;left:0;right:0;padding:7px 16px;" +
-      "border-radius:0 0 12px 12px;background:rgba(56,189,248,0.08);" +
+      ".demo-banner{position:fixed;top:0;left:50%;transform:translateX(-50%);padding:7px 18px;" +
+      "border-radius:0 0 12px 12px;border:1px solid var(--border-strong);background:rgba(56,189,248,0.08);" +
       "color:var(--muted);font-size:12.5px;text-align:center;z-index:100;}";
     document.head.appendChild(style);
 
